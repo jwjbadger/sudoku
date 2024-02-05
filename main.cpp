@@ -28,7 +28,7 @@ class Board {
 
                 std::copy(std::begin(_board[i]), std::end(_board[i]), std::begin(row));
 
-                for (int j = 1; j < 9; ++j) {
+                for (int j = 0; j < 9; ++j) {
                     col[j] = _board[j][i];
                     group[j] = _board[(i / 3) * 3 + j / 3][(i % 3) * 3 + j % 3];
                 }
