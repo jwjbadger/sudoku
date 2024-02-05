@@ -47,6 +47,28 @@ class Board {
             return true;
         }
 
+        bool canMove(int r, int c, int num) {
+            int row[9]; 
+            int col[9];
+            int group[9];
+
+            std::copy(std::begin(_board[r]), std::end(_board[r]), std::begin(row));
+
+            int g = ((r / 3) * 3 + c / 3);
+            for (int j = 0; j < 9; ++j) {
+                col[j] = _board[j][c];
+                group[j] = _board[(g / 3) * 3 + j / 3][(g % 3) * 3 + j % 3];
+            }
+
+            for (int j = 0; j < 9; ++j)
+                if ((row[j] == num) ||
+                    (col[j] == num) ||
+                    (group[j] == num))
+                    return false;
+
+            return true;
+        }
+
         friend std::ostream& operator<<(std::ostream& os, const Board& yourfriendlyneighbordhoodspiderman) {
             for (int i = 0; i < 9; ++i) {
                 for (int j = 0; j < 9; ++j) {
@@ -62,5 +84,9 @@ class Board {
 int main() {
     Board board;
     std::cout << board << std::endl;
-    std::cout << board.validate() << std::endl;
+    std::cout << board.validate() << std::endl; // true
+
+    std::cout << board.canMove(0, 2, 2) << std::endl; // false
+    std::cout << board.canMove(4, 1, 1) << std::endl; // true
+    std::cout << board.canMove(8, 6, 8) << std::endl; // false
 }
