@@ -2,6 +2,7 @@
 #include <iostream>
 #include <algorithm>
 #include <iterator>
+#include <ncurses.h>
 
 class Board {
     private:
@@ -16,20 +17,39 @@ class Board {
         //         {0, 6, 0, 0, 0, 9, 2, 0, 5},
         //         {0, 0, 9, 0, 5, 4, 0, 8, 3}
         //     };
+        // int _board[9][9] = {
+        //         {8, 0, 0, 0, 0, 0, 0, 0, 0},
+        //         {0, 0, 3, 6, 0, 0, 0, 0, 0},
+        //         {0, 7, 0, 0, 9, 0, 2, 0, 0},
+        //         {0, 5, 0, 0, 0, 7, 0, 0, 0},
+        //         {0, 0, 0, 0, 4, 5, 7, 0, 0},
+        //         {0, 0, 0, 1, 0, 0, 0, 3, 0},
+        //         {0, 0, 1, 0, 0, 0, 0, 6, 8},
+        //         {0, 0, 8, 5, 0, 0, 0, 1, 0},
+        //         {0, 9, 0, 0, 0, 0, 4, 0, 0}
+        //     };
         int _board[9][9] = {
-                {8, 0, 0, 0, 0, 0, 0, 0, 0},
-                {0, 0, 3, 6, 0, 0, 0, 0, 0},
-                {0, 7, 0, 0, 9, 0, 2, 0, 0},
-                {0, 5, 0, 0, 0, 7, 0, 0, 0},
-                {0, 0, 0, 0, 4, 5, 7, 0, 0},
-                {0, 0, 0, 1, 0, 0, 0, 3, 0},
-                {0, 0, 1, 0, 0, 0, 0, 6, 8},
-                {0, 0, 8, 5, 0, 0, 0, 1, 0},
-                {0, 9, 0, 0, 0, 0, 4, 0, 0}
-            };
+            {0, 0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 0, 0, 0, 0, 0, 0, 0}
+        };
     
     public:
         Board() {}
+
+        bool play(int x, int y, int num) {
+            bool valid = canMove(y, x, num);
+            
+            _board[y][x] = num;
+
+            return valid;
+        }
 
         bool validate() {
             for (int i = 0; i < 9; ++i) {
@@ -110,29 +130,86 @@ class Board {
             return solve(0, 0);
         }
 
-        friend std::ostream& operator<<(std::ostream& os, const Board& yourfriendlyneighbordhoodspiderman) {
+        friend std::ostream& operator<<(std::ostream& os, const Board& board) {
             for (int i = 0; i < 9; ++i) {
                 for (int j = 0; j < 9; ++j) {
-                    os << yourfriendlyneighbordhoodspiderman._board[i][j] << " ";
+                    os << board._board[i][j] << " ";
                 }
                 os << std::endl;
             }
 
             return os;
         }
+
+        operator const char*() const {
+            static char ch[18 * 9] = "";
+
+            for (int i = 0; i < 9; ++i) {
+                for (int j = 0; j < 9; ++j) {
+                    ch[i * 18 + j * 2] = '0' + _board[i][j];
+                    ch[(i * 18) + (j * 2) + 1] = ' ';
+                }
+                ch[i * 18 + 17] = '\n';
+            }
+
+            ch[161] = ' '; // end of print
+
+            return ch;
+        }
 };
 
 int main() {
+    initscr();
+    keypad(stdscr, TRUE);
+    noecho();
+    cbreak();
+
     Board board;
-    std::cout << board << std::endl;
-    std::cout << board.validate() << std::endl; // true
+    printw(board);
 
-    std::cout << board.canMove(0, 2, 2) << std::endl; // false
-    std::cout << board.canMove(4, 1, 1) << std::endl; // true
-    std::cout << board.canMove(8, 6, 8) << std::endl; // false
+    start_color();
+    init_pair(1, COLOR_WHITE, COLOR_RED);
 
-    std::cout << std::endl;
-    board.solve();
-    std::cout << board;
-    std::cout << board.validate() << std::endl;
+    char mode = 'c';
+
+    for (int ch = getch(); ch != 'q'; ch = getch()) {
+        //printw("%i", ch);
+        switch (ch) {
+            case 259:
+                //printw("UP ARROW");
+                move(getcury(stdscr) - 1, getcurx(stdscr));
+                break;
+            case 261:
+                //printw("RIGHT ARROW");
+                move(getcury(stdscr), getcurx(stdscr) + 1);
+                break;
+            case 258:
+                //printw("DOWN ARROW");
+                move(getcury(stdscr) + 1, getcurx(stdscr));
+                break;
+            case 260:
+                //printw("LEFT ARROW");
+                move(getcury(stdscr), getcurx(stdscr) - 1);
+                break;
+            case 10:
+                if (mode == 'c') {
+                    curs_set(2);
+                    mode = 'e';
+                } else if (mode == 'e') {
+                    curs_set(1);
+                    mode = 'c';
+                }
+                refresh();
+                break;
+            default:
+                if ('0' <= ch && '9' >= ch && getcurx(stdscr) % 2 == 0 && mode == 'e') {
+                    if (!board.play(getcurx(stdscr) / 2, getcury(stdscr), ch - '0'))
+                        attron(COLOR_PAIR(1));
+
+                    printw("%c", ch);
+                    attroff(COLOR_PAIR(1));
+                }
+                break;
+        }
+    }
 }
