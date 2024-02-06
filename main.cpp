@@ -5,16 +5,27 @@
 
 class Board {
     private:
+        // int _board[9][9] = {
+        //         {9, 5, 0, 6, 7, 0, 3, 0, 0},
+        //         {1, 0, 6, 3, 0, 0, 0, 9, 0},
+        //         {0, 0, 2, 0, 0, 0, 1, 0, 7},
+        //         {0, 4, 3, 0, 1, 0, 0, 0, 0},
+        //         {2, 0, 8, 0, 9, 0, 4, 0, 6},
+        //         {0, 0, 0, 0, 3, 0, 8, 1, 0},
+        //         {4, 0, 5, 0, 0, 0, 9, 0, 0},
+        //         {0, 6, 0, 0, 0, 9, 2, 0, 5},
+        //         {0, 0, 9, 0, 5, 4, 0, 8, 3}
+        //     };
         int _board[9][9] = {
-                {9, 5, 0, 6, 7, 0, 3, 0, 0},
-                {1, 0, 6, 3, 0, 0, 0, 9, 0},
-                {0, 0, 2, 0, 0, 0, 1, 0, 7},
-                {0, 4, 3, 0, 1, 0, 0, 0, 0},
-                {2, 0, 8, 0, 9, 0, 4, 0, 6},
-                {0, 0, 0, 0, 3, 0, 8, 1, 0},
-                {4, 0, 5, 0, 0, 0, 9, 0, 0},
-                {0, 6, 0, 0, 0, 9, 2, 0, 5},
-                {0, 0, 9, 0, 5, 4, 0, 8, 3}
+                {8, 0, 0, 0, 0, 0, 0, 0, 0},
+                {0, 0, 3, 6, 0, 0, 0, 0, 0},
+                {0, 7, 0, 0, 9, 0, 2, 0, 0},
+                {0, 5, 0, 0, 0, 7, 0, 0, 0},
+                {0, 0, 0, 0, 4, 5, 7, 0, 0},
+                {0, 0, 0, 1, 0, 0, 0, 3, 0},
+                {0, 0, 1, 0, 0, 0, 0, 6, 8},
+                {0, 0, 8, 5, 0, 0, 0, 1, 0},
+                {0, 9, 0, 0, 0, 0, 4, 0, 0}
             };
     
     public:
@@ -69,6 +80,36 @@ class Board {
             return true;
         }
 
+        bool solve(int row, int col) {            
+            if (col > 8) {
+                if (row == 8)
+                    return true;
+
+                ++row;
+                col = 0;
+            }
+
+            if (_board[row][col] > 0)
+                return solve(row, col + 1);
+
+            for (int i = 1; i < 10; ++i) {
+                if (canMove(row, col, i)) {
+                    _board[row][col] = i;
+
+                    if (solve(row, col + 1))
+                        return true;
+
+                    _board[row][col] = 0;
+                }   
+            }
+
+            return false;
+        }
+
+        bool solve() {
+            return solve(0, 0);
+        }
+
         friend std::ostream& operator<<(std::ostream& os, const Board& yourfriendlyneighbordhoodspiderman) {
             for (int i = 0; i < 9; ++i) {
                 for (int j = 0; j < 9; ++j) {
@@ -89,4 +130,9 @@ int main() {
     std::cout << board.canMove(0, 2, 2) << std::endl; // false
     std::cout << board.canMove(4, 1, 1) << std::endl; // true
     std::cout << board.canMove(8, 6, 8) << std::endl; // false
+
+    std::cout << std::endl;
+    board.solve();
+    std::cout << board;
+    std::cout << board.validate() << std::endl;
 }
