@@ -43,6 +43,14 @@ class Board {
     public:
         Board() {}
 
+        int* operator[](const unsigned int r) {
+            return _board[r];
+        }
+
+        const int* operator[](const unsigned int r) const {
+            return _board[r];
+        }
+
         bool play(int x, int y, int num) {
             bool valid = canMove(y, x, num);
             
@@ -92,6 +100,9 @@ class Board {
             int col[9];
             int group[9];
 
+            int oldVal = _board[r][c];
+            _board[r][c] = 0;
+
             std::copy(std::begin(_board[r]), std::end(_board[r]), std::begin(row));
 
             int g = ((r / 3) * 3 + c / 3);
@@ -100,12 +111,16 @@ class Board {
                 group[j] = _board[(g / 3) * 3 + j / 3][(g % 3) * 3 + j % 3];
             }
 
-            for (int j = 0; j < 9; ++j)
+            for (int j = 0; j < 9; ++j) {
                 if ((row[j] == num) ||
                     (col[j] == num) ||
-                    (group[j] == num))
+                    (group[j] == num)) {
+                    _board[r][c] = oldVal;
                     return false;
+                }
+            }
 
+            _board[r][c] = oldVal;
             return true;
         }
 
@@ -236,19 +251,32 @@ int main() {
                 break;
             default:
                 if ('0' <= ch && '9' >= ch && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 16 && getcury(stdscr) <= 8) {
-                    if (!board.play(getcurx(stdscr) / 2, getcury(stdscr), ch - '0'))
-                        attron(COLOR_PAIR(1));
+                    board.play(getcurx(stdscr) / 2, getcury(stdscr), ch - '0');
+                    
+                    int x = 0, y = 0;
 
-                    printw("%c", ch);
+                    if (getcurx(stdscr) < 16) {
+                        x = getcurx(stdscr) + 2;
+                        y = getcury(stdscr);
+                    } else if (getcury(stdscr) < 8) {
+                        y = getcury(stdscr) + 1;
+                    }
 
-                    if (getcurx(stdscr) < 16)
-                        move(getcury(stdscr), getcurx(stdscr) + 1);
-                    else if (getcury(stdscr) < 8)
-                        move(getcury(stdscr) + 1, 0);
-                    else
-                        move(0, 0);
+                    for (int i = 0; i < 9; ++i) {
+                        for (int j = 0; j < 9; ++j) {
+                            move(i, j * 2);
 
-                    attroff(COLOR_PAIR(1));
+                            if (board[i][j] != 0 && !board.canMove(i, j, board[i][j])) {
+                                attron(COLOR_PAIR(1));
+                                printw("%i", board[i][j]);
+                                attroff(COLOR_PAIR(1));
+                            } else {
+                                printw("%i", board[i][j]);
+                            }
+                        }
+                    }
+
+                    move(y, x);
 
                     if (board.full() && board.validate()) {
                         clear();
