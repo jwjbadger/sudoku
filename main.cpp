@@ -51,6 +51,15 @@ class Board {
             return valid;
         }
 
+        bool full() {
+            for (int i = 0; i < 9; ++i)
+                for (int j = 0; j < 9; ++j)
+                    if (_board[i][j] < 1 || _board[i][j] > 9)
+                        return false;
+
+            return true;
+        }
+
         bool validate() {
             for (int i = 0; i < 9; ++i) {
                 int row[9]; 
@@ -142,17 +151,19 @@ class Board {
         }
 
         operator const char*() const {
-            static char ch[18 * 9] = "";
+            static char ch[163] = "";
 
             for (int i = 0; i < 9; ++i) {
                 for (int j = 0; j < 9; ++j) {
                     ch[i * 18 + j * 2] = '0' + _board[i][j];
                     ch[(i * 18) + (j * 2) + 1] = ' ';
                 }
-                ch[i * 18 + 17] = '\n';
-            }
 
-            ch[161] = ' '; // end of print
+                if (i < 8)
+                    ch[i * 18 + 17] = '\n';
+            }
+            
+            ch[161] = '\0';
 
             return ch;
         }
@@ -165,31 +176,40 @@ int main() {
     cbreak();
 
     Board board;
-    printw(board);
+    printw("%s", static_cast<const char*>(board));
+    move(0, 0);
 
     start_color();
     init_pair(1, COLOR_WHITE, COLOR_RED);
+    init_pair(2, COLOR_WHITE, COLOR_GREEN);
 
     char mode = 'c';
 
     for (int ch = getch(); ch != 'q'; ch = getch()) {
-        //printw("%i", ch);
         switch (ch) {
             case 259:
-                //printw("UP ARROW");
-                move(getcury(stdscr) - 1, getcurx(stdscr));
+                if (getcury(stdscr) > 0)
+                    move(getcury(stdscr) - 1, getcurx(stdscr));
+                else
+                    move(8, getcurx(stdscr));
                 break;
             case 261:
-                //printw("RIGHT ARROW");
-                move(getcury(stdscr), getcurx(stdscr) + 1);
+                if (getcurx(stdscr) < 16)
+                    move(getcury(stdscr), getcurx(stdscr) + 2);
+                else
+                    move(getcury(stdscr), 0);
                 break;
             case 258:
-                //printw("DOWN ARROW");
-                move(getcury(stdscr) + 1, getcurx(stdscr));
+                if (getcury(stdscr) < 8)
+                    move(getcury(stdscr) + 1, getcurx(stdscr));
+                else
+                    move(0, getcurx(stdscr));
                 break;
             case 260:
-                //printw("LEFT ARROW");
-                move(getcury(stdscr), getcurx(stdscr) - 1);
+                if (getcurx(stdscr) > 0)
+                    move(getcury(stdscr), getcurx(stdscr) - 2);
+                else
+                    move(getcury(stdscr), 16);
                 break;
             case 10:
                 if (mode == 'c') {
@@ -201,13 +221,44 @@ int main() {
                 }
                 refresh();
                 break;
+            case 115:
+                if (mode == 'c') {
+                    board.solve();
+
+                    move(0, 0);
+
+                    attron(COLOR_PAIR(2));
+                    printw("%s", static_cast<const char *>(board));
+                    attroff(COLOR_PAIR(2));
+
+                    move(0, 0);
+                }
+                break;
             default:
-                if ('0' <= ch && '9' >= ch && getcurx(stdscr) % 2 == 0 && mode == 'e') {
+                if ('0' <= ch && '9' >= ch && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 16 && getcury(stdscr) <= 8) {
                     if (!board.play(getcurx(stdscr) / 2, getcury(stdscr), ch - '0'))
                         attron(COLOR_PAIR(1));
 
                     printw("%c", ch);
+
+                    if (getcurx(stdscr) < 16)
+                        move(getcury(stdscr), getcurx(stdscr) + 1);
+                    else if (getcury(stdscr) < 8)
+                        move(getcury(stdscr) + 1, 0);
+                    else
+                        move(0, 0);
+
                     attroff(COLOR_PAIR(1));
+
+                    if (board.full() && board.validate()) {
+                        clear();
+
+                        attron(COLOR_PAIR(2));
+                        printw("%s", static_cast<const char*>(board));
+                        attroff(COLOR_PAIR(2));
+
+                        move(0, 0);
+                    }
                 }
                 break;
         }
