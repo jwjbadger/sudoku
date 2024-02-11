@@ -162,25 +162,28 @@ class Board {
 
             int options[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
-            for (int i = 0; i < 9; ++i) {
-                for (int j = 0; j < 9; ++j) {
-                    std::random_device rd;
-                    std::mt19937 g(rd());
-                    std::shuffle(std::begin(options), std::end(options), g);
+            for (int i = 0; i < 81; ++i) {
+                std::random_device rd;
+                std::mt19937 g(rd());
+                std::shuffle(std::begin(options), std::end(options), g);
 
-                    for (int k = 0; k < 9; ++k) {
-                        move(14 + i, k * 2);
-                       if (canMove((shuffledBoard[i * 9 + j] - &(_board[0][0])) / 9, (shuffledBoard[i * 9 + j] - &(_board[0][0])) % 9, options[k])) {
-                            *(shuffledBoard[i * 9 + j]) = options[k];
-
-                            if (unique() > 1)
-                                break;
-
-                            if (unique() == 1)
-                                return;
-                       }
+                for (int k = 0; k < 9; ++k) {
+                   if (canMove((shuffledBoard[i] - &(_board[0][0])) / 9, (shuffledBoard[i] - &(_board[0][0])) % 9, options[k])) {
+                        *(shuffledBoard[i]) = options[k];
+                        
+                        int numSolutions = unique();
+                        mvprintw(20, 20, "%i, %i", i, numSolutions);
+                        refresh();
+                        
+                        if (numSolutions > 1)
+                            break;
+                        else if (numSolutions == 1)
+                            return;
+                        else
+                            *(shuffledBoard[i]) = 0;
                     }
                 }
+
             }
         }
 
@@ -211,7 +214,7 @@ class Board {
                             ch[(i - 1) * 23 + (j - 1) * 2] = '|';
                             ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = ' ';
                         } else {
-                            ch[(i - 1) * 23 + (j - 1) * 2] = '0' + _board[i - (i / 4) - 1][j - (j / 4)];
+                            ch[(i - 1) * 23 + (j - 1) * 2] = '0' + _board[i - (i / 4) - 1][j - (j / 4) - 1];
                             ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = ' ';
                         }
                     }
