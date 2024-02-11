@@ -169,11 +169,16 @@ class Board {
         }
 
         bool solve() {
+            for (int i = 0; i < 9; ++i)
+                for (int j = 0; j < 9; ++j)
+                    if (_board[i][j] > 0 && !fixed(i, j))
+                        _board[i][j] = 0;
+
             if (!validate())
                 return false;
             if (full())
                 return true;
-            
+
             return solve(0, 0);
         }
 
@@ -359,12 +364,16 @@ int main() {
     noecho();
     cbreak();
 
-    Board board;
+    mousemask(ALL_MOUSE_EVENTS, NULL);
 
     start_color();
     init_pair(1, COLOR_RED, COLOR_BLACK);
     init_pair(2, COLOR_GREEN, COLOR_BLACK);
     init_pair(3, COLOR_BLUE, COLOR_BLACK);
+
+    MEVENT event;
+
+    Board board;
 
     char mode = 'c';
     char status = 'i';
@@ -382,7 +391,16 @@ int main() {
 
     for (int ch = getch(); ch != 'q'; ch = getch()) {
         switch (ch) {
-            case 259: // Arrow Up
+            case KEY_MOUSE:
+                if (getmouse(&event) != OK)
+                    break;
+
+                if (event.bstate & BUTTON1_CLICKED) {
+                    if ((event.y <= 10 && event.x <= 20) && (event.y == 0 || (event.y + 1) % 4 != 0) && (event.x == 0 || ((event.x + 2) % 8 != 0 && event.x % 2 == 0)))
+                        move(event.y, event.x);
+                }
+                break;
+            case KEY_UP:
                 if (getcury(stdscr) > 0) {
                     move(getcury(stdscr) - 1, getcurx(stdscr));
                     if ((getcury(stdscr) + 1) % 4 == 0 && getcury(stdscr) > 0)
@@ -391,7 +409,7 @@ int main() {
                     move(10, getcurx(stdscr));
                 }
                 break;
-            case 261: // Arrow Right
+            case KEY_RIGHT:
                 if (getcurx(stdscr) < 20) {
                     move(getcury(stdscr), getcurx(stdscr) + 2);
                     if ((getcurx(stdscr) + 2) % 8 == 0 && getcurx(stdscr) > 0)
@@ -400,7 +418,7 @@ int main() {
                     move(getcury(stdscr), 0);
                 }
                 break;
-            case 258: // Arrow Down
+            case KEY_DOWN:
                 if (getcury(stdscr) < 10) {
                     move(getcury(stdscr) + 1, getcurx(stdscr));
                     if ((getcury(stdscr) + 1) % 4 == 0 && getcury(stdscr) > 0)
@@ -409,7 +427,7 @@ int main() {
                     move(0, getcurx(stdscr));
                 }
                 break;
-            case 260: // Arrow Left
+            case KEY_LEFT:
                 if (getcurx(stdscr) > 0) {
                     move(getcury(stdscr), getcurx(stdscr) - 2);
                     if ((getcurx(stdscr) + 2) % 8 == 0 && getcurx(stdscr) > 0)
@@ -418,7 +436,8 @@ int main() {
                     move(getcury(stdscr), 20);
                 }
                 break;
-            case 10: // Enter
+            case '\n':
+            case KEY_ENTER: 
                 if (mode == 'c') {
                     curs_set(2);
                     mode = 'e';
@@ -429,7 +448,7 @@ int main() {
 
                 drawStats(status, mode);
                 break;
-            case 102: // F
+            case 'f': // F
                 if (mode != 'c')
                     break;
 
@@ -442,7 +461,7 @@ int main() {
                 drawStats(status, mode);
 
                 break;
-            case 103: // G
+            case 'g':
                 if (mode != 'c')
                     break;
 
@@ -462,7 +481,7 @@ int main() {
                 move(0, 0);
 
                 break;
-            case 115: // S
+            case 's':
                 if (mode == 'c') {
                     status = 's';
                     drawStats(status, mode);
@@ -506,4 +525,7 @@ int main() {
                 break;
         }
     }
+
+    endwin();
+    return 0;
 }

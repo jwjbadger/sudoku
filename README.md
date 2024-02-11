@@ -1,4 +1,4 @@
--   [ ] Ability to use mouse to play
+-   [x] Ability to use mouse to play
 -   [x] Seperate into 3x3 grids
 -   [ ] Stay on the same number if invalid input (red highlight)
 -   [ ] Reformat code
