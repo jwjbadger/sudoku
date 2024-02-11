@@ -1,3 +1,4 @@
 *.out
-.vscode/*
 .ccls-cache/*
+main.dSYM
+main

@@ -207,7 +207,7 @@ class Board {
                             ch[(i - 1) * 23 + (j - 1) * 2] = '|';
                             ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = ' ';
                         } else {
-                            ch[(i - 1) * 23 + (j - 1) * 2] = '0' + _board[i - (i / 3)][j - (j / 3) - 1];
+                            ch[(i - 1) * 23 + (j - 1) * 2] = '0' + _board[i - (i / 4) - 1][j - (j / 4) - 1];
                             ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = ' ';
                         }
                     }
@@ -238,6 +238,11 @@ int main() {
     init_pair(2, COLOR_WHITE, COLOR_GREEN);
 
     char mode = 'c';
+    
+    board.generate();
+    move(0, 0);
+    printw("%s", static_cast<const char *>(board));
+    move(0, 0);
 
     for (int ch = getch(); ch != 'q'; ch = getch()) {
         switch (ch) {
