@@ -2,6 +2,7 @@
 #include <iostream>
 #include <algorithm>
 #include <iterator>
+#include <random>
 #include <ncurses.h>
 
 class Board {
@@ -115,6 +116,70 @@ class Board {
             return false;
         }
 
+        int unique(int row = 0, int col = 0, int num = 0) {
+            if (num > 1)
+                return num;
+
+            if (col > 8) {
+                if (row == 8)
+                    return num + 1;
+
+                ++row;
+                col = 0;
+            }
+
+            if (_board[row][col] > 0)
+                return unique(row, col + 1, num);
+
+            for (int i = 1; i < 10; ++i) {
+                if (canMove(row, col, i)) {
+                    _board[row][col] = i;
+
+                    num = unique(row, col + 1, num);
+
+                    _board[row][col] = 0;
+
+                    if (num > 1)
+                        return num;
+                }   
+            }
+
+            return num;
+        }
+
+        void generate() {            
+            int *shuffledBoard[81] = {};
+
+            for (int i = 0; i < 9; ++i) {
+                for (int j = 0; j < 9; ++j) {
+                    shuffledBoard[i * 9 + j] = &_board[i][j]; 
+                }
+            }
+
+            std::random_device rd;
+            std::mt19937 g(rd());
+            std::shuffle(std::begin(shuffledBoard), std::end(shuffledBoard), g);
+
+            int options[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+
+            for (int i = 0; i < 9; ++i) {
+                for (int j = 0; j < 9; ++j) {
+                    std::shuffle(std::begin(options), std::end(options), g);
+                    for (int k = 0; k < 9; ++k) {
+                       if (canMove((shuffledBoard[i * 9 + j] - &(_board[0][0])) / 9, (shuffledBoard[i * 9 + j] - &(_board[0][0])) % 9, options[k])) {
+                            *(shuffledBoard[i * 9 + j]) = options[k];
+
+                            if (unique() > 1)
+                                break;
+
+                            if (unique() == 1)
+                                return;
+                       }
+                    }
+                }
+            }
+        }
+
         friend std::ostream& operator<<(std::ostream& os, const Board& board) {
             for (int i = 0; i < 9; ++i) {
                 for (int j = 0; j < 9; ++j) {
@@ -127,19 +192,32 @@ class Board {
         }
 
         operator const char*() const {
-            static char ch[163] = "";
+            static char ch[253] = "";
 
-            for (int i = 0; i < 9; ++i) {
-                for (int j = 0; j < 9; ++j) {
-                    ch[i * 18 + j * 2] = '0' + _board[i][j];
-                    ch[(i * 18) + (j * 2) + 1] = ' ';
+            for (int i = 1; i < 12; ++i) {
+                for (int j = 1; j < 12; ++j) {
+                    if (i != 0 && i % 4 == 0) {
+                        if (j != 0 && j % 4 == 0)
+                            ch[(i - 1) * 23 + (j - 1) * 2] = '+';
+                        else
+                            ch[(i - 1) * 23 + (j - 1) * 2] = '-';
+                        ch[(i - 1) * 23 + (j - 1) * 2 + 1] = '-';
+                    } else {
+                        if (j != 0 && j % 4 == 0) {
+                            ch[(i - 1) * 23 + (j - 1) * 2] = '|';
+                            ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = ' ';
+                        } else {
+                            ch[(i - 1) * 23 + (j - 1) * 2] = '0' + _board[i - (i / 3)][j - (j / 3) - 1];
+                            ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = ' ';
+                        }
+                    }
                 }
-
-                if (i < 8)
-                    ch[i * 18 + 17] = '\n';
+                
+                if (i < 11)
+                    ch[(i - 1) * 23 + 22] = '\n';
             }
             
-            ch[161] = '\0';
+            ch[252] = '\0';
 
             return ch;
         }
@@ -164,28 +242,40 @@ int main() {
     for (int ch = getch(); ch != 'q'; ch = getch()) {
         switch (ch) {
             case 259: // Arrow Up
-                if (getcury(stdscr) > 0)
+                if (getcury(stdscr) > 0) {
                     move(getcury(stdscr) - 1, getcurx(stdscr));
-                else
-                    move(8, getcurx(stdscr));
+                    if ((getcury(stdscr) + 1) % 4 == 0 && getcury(stdscr) > 0)
+                        move(getcury(stdscr) - 1, getcurx(stdscr));
+                } else {
+                    move(10, getcurx(stdscr));
+                }
                 break;
             case 261: // Arrow Right
-                if (getcurx(stdscr) < 16)
+                if (getcurx(stdscr) < 20) {
                     move(getcury(stdscr), getcurx(stdscr) + 2);
-                else
+                    if ((getcurx(stdscr) + 2) % 8 == 0 && getcurx(stdscr) > 0)
+                        move(getcury(stdscr), getcurx(stdscr) + 2);
+                } else {
                     move(getcury(stdscr), 0);
+                }
                 break;
             case 258: // Arrow Down
-                if (getcury(stdscr) < 8)
+                if (getcury(stdscr) < 10) {
                     move(getcury(stdscr) + 1, getcurx(stdscr));
-                else
+                    if ((getcury(stdscr) + 1) % 4 == 0 && getcury(stdscr) > 0)
+                        move(getcury(stdscr) + 1, getcurx(stdscr));
+                } else {
                     move(0, getcurx(stdscr));
+                }
                 break;
             case 260: // Arrow Left
-                if (getcurx(stdscr) > 0)
+                if (getcurx(stdscr) > 0) {
                     move(getcury(stdscr), getcurx(stdscr) - 2);
-                else
-                    move(getcury(stdscr), 16);
+                    if ((getcurx(stdscr) + 2) % 8 == 0 && getcurx(stdscr) > 0)
+                        move(getcury(stdscr), getcurx(stdscr) - 2);
+                } else {
+                    move(getcury(stdscr), 20);
+                }
                 break;
             case 10: // Enter
                 if (mode == 'c') {
@@ -197,13 +287,26 @@ int main() {
                 }
                 refresh();
                 break;
+            case 103: // G
+                if (mode == 'c') {
+                    board.generate();
+
+                    move(0, 0);
+
+                    printw("%s", static_cast<const char *>(board));
+
+                    move(0, 0);
+                }
+
+                break;
             case 115: // S
                 if (mode == 'c') {
                     board.solve();
 
                     move(0, 0);
 
-                    attron(COLOR_PAIR(2));
+                    if (board.full() && board.validate())
+                        attron(COLOR_PAIR(2));
                     printw("%s", static_cast<const char *>(board));
                     attroff(COLOR_PAIR(2));
 
@@ -211,21 +314,25 @@ int main() {
                 }
                 break;
             default: // Handle numbers
-                if ('0' <= ch && '9' >= ch && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 16 && getcury(stdscr) <= 8) {
-                    board.play(getcurx(stdscr) / 2, getcury(stdscr), ch - '0');
+                if ('0' <= ch && '9' >= ch && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 20 && getcury(stdscr) <= 10) {
+                    board.play((getcurx(stdscr) / 2) - ((getcurx(stdscr) / 2) / 4), getcury(stdscr) - (getcury(stdscr) / 4), ch - '0');
                     
                     int x = 0, y = 0;
 
-                    if (getcurx(stdscr) < 16) {
+                    if (getcurx(stdscr) < 20) {
                         x = getcurx(stdscr) + 2;
+                        if ((x + 2) % 8 == 0 && x > 0)
+                            x += 2;
                         y = getcury(stdscr);
-                    } else if (getcury(stdscr) < 8) {
+                    } else if (getcury(stdscr) < 10) {
                         y = getcury(stdscr) + 1;
+                        if ((y + 1) % 4 == 0 && y > 0)
+                            ++y; 
                     }
 
                     for (int i = 0; i < 9; ++i) {
                         for (int j = 0; j < 9; ++j) {
-                            move(i, j * 2);
+                            move(i + (i / 3), j * 2 + (j / 3) * 2);
 
                             if (!board.canMove(i, j, board[i][j])) {
                                 attron(COLOR_PAIR(1));
