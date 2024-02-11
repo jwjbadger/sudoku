@@ -7,27 +7,80 @@
 class Board {
     private:
         int _board[9][9] = {};
+        int *_fixed = new int[0];
+        int _numFixed = 0;
     
     public:
         Board() {}
+
+        Board(Board &copy) : _numFixed(copy._numFixed) {
+            for (int i = 0; i < 9; ++i)
+                for (int j = 0; j < 9; ++j)
+                    _board[i][j] = copy[i][j];
+            
+            _fixed = new int[_numFixed];
+            for (int i = 0; i < _numFixed; ++i)
+                _fixed[i] = copy._fixed[i]; 
+        }
+
+        ~Board() {
+            delete[] _fixed;
+        }
 
         const int* operator[](const unsigned int r) const {
             return _board[r];
         }
 
-        bool play(int x, int y, int num) {
-            _board[y][x] = num > 0 && num < 10 ? num : 0;
+        bool fixed(int r, int c) {
+            if (std::find(_fixed, _fixed + _numFixed, r * 9 + c) != _fixed + _numFixed)
+                return true;
+            return false;
+        }
 
-            return canMove(y, x, num);
+        bool fix() {
+            if (!validate() || unique() < 1)
+                return false;
+
+            delete[] _fixed;
+
+            _numFixed = count();
+            _fixed = new int[_numFixed];
+
+            int index = 0;
+            for (int i = 0; i < 9; ++i) {
+                for (int j = 0; j < 9; ++j) {
+                    if (_board[i][j] != 0) {
+                        _fixed[index] = i * 9 + j;
+                        ++index;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        bool play(int r, int c, int num) {
+            if (fixed(r, c))
+                return false;
+                
+            _board[r][c] = num > 0 && num < 10 ? num : 0;
+
+            return canMove(r, c, num);
         }
 
         bool full() {
+            return count() == 81;
+        }
+
+        int count() {
+            int count = 0;
+
             for (int i = 0; i < 9; ++i)
                 for (int j = 0; j < 9; ++j)
-                    if (_board[i][j] < 1 || _board[i][j] > 9)
-                        return false;
+                    if (_board[i][j] > 0 && _board[i][j] < 10)
+                        ++count; 
 
-            return true;
+            return count;
         }
 
         bool validate() {
@@ -181,15 +234,19 @@ class Board {
                         
                         int numSolutions = unique();
                         
-                        if (numSolutions > 1)
-                            break;
-                        else if (numSolutions == 1)
+                        if (numSolutions == 1) {
+                            fix();
                             return;
-                        else
+                        } else if (numSolutions > 1) {
+                            break;
+                        } else {
                             *(shuffledBoard[i]) = 0;
+                        }
                     }
                 }
             }
+
+            fix(); 
         }
 
         operator const char*() const {
@@ -225,11 +282,17 @@ class Board {
 };
 
 void drawBoard(Board board) {
+    int x = getcurx(stdscr), y = getcury(stdscr);
+
     for (int i = 0; i < 9; ++i) {
         for (int j = 0; j < 9; ++j) {
             move(i + (i / 3), j * 2 + (j / 3) * 2);
-
-            if (!board.canMove(i, j, board[i][j])) {
+            
+            if (board.fixed(i, j)) {
+                attron(COLOR_PAIR(3));
+                printw("%i", board[i][j]);
+                attroff(COLOR_PAIR(3));
+            } else if (!board.canMove(i, j, board[i][j])) {
                 attron(COLOR_PAIR(1));
                 printw("%i", board[i][j]);
                 attroff(COLOR_PAIR(1));
@@ -239,11 +302,13 @@ void drawBoard(Board board) {
         }
     }
 
-    move(0, 0);
+    move(y, x);
     refresh();
 }
 
 void drawStats(char status, char mode) {
+    int x = getcurx(stdscr), y = getcury(stdscr);
+
     switch (status) {
         case 'i':
             mvprintw(0, 34, "%s", "User Input        ");
@@ -284,7 +349,7 @@ void drawStats(char status, char mode) {
             break;
     }
 
-    move(0, 0);
+    move(y, x);
     refresh();
 }
 
@@ -364,23 +429,37 @@ int main() {
 
                 drawStats(status, mode);
                 break;
+            case 102: // F
+                if (mode != 'c')
+                    break;
+
+                if (!board.fix())
+                    break;
+
+                status = 'u';
+
+                drawBoard(board);
+                drawStats(status, mode);
+
+                break;
             case 103: // G
-                if (mode == 'c') {
-                    status = 'g';
-                    drawStats(status, mode);
+                if (mode != 'c')
+                    break;
 
-                    board.generate();
+                status = 'g';
+                drawStats(status, mode);
 
-                    if (board.unique() == 1)
-                        status = 'u';
-                    else
-                        status = 'E';
+                board.generate();
 
-                    drawBoard(board);
-                    drawStats(status, mode);
+                if (board.unique() == 1)
+                    status = 'u';
+                else
+                    status = 'E';
 
-                    move(0, 0);
-                }
+                drawBoard(board);
+                drawStats(status, mode);
+
+                move(0, 0);
 
                 break;
             case 115: // S
@@ -400,20 +479,25 @@ int main() {
                 break;
             default: // Handle numbers
                 if ('0' <= ch && '9' >= ch && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 20 && getcury(stdscr) <= 10) {
-                    board.play((getcurx(stdscr) / 2) - ((getcurx(stdscr) / 2) / 4), getcury(stdscr) - (getcury(stdscr) / 4), ch - '0');
+                    board.play(getcury(stdscr) - (getcury(stdscr) / 4), (getcurx(stdscr) / 2) - ((getcurx(stdscr) / 2) / 4), ch - '0');
                     
-                    int x = 0, y = 0;
+                    int x = getcurx(stdscr), y = getcury(stdscr);
 
-                    if (getcurx(stdscr) < 20) {
-                        x = getcurx(stdscr) + 2;
-                        if ((x + 2) % 8 == 0 && x > 0)
+                    do {
+                        if (x < 20) {
                             x += 2;
-                        y = getcury(stdscr);
-                    } else if (getcury(stdscr) < 10) {
-                        y = getcury(stdscr) + 1;
-                        if ((y + 1) % 4 == 0 && y > 0)
-                            ++y; 
-                    }
+                            if ((x + 2) % 8 == 0 && x > 0)
+                                x += 2;
+                        } else if (y < 10) {
+                            y += 1;
+                            if ((y + 1) % 4 == 0 && y > 0)
+                                ++y; 
+                            x = 0;
+                        } else {
+                            x = 0;
+                            y = 0;
+                        }
+                    } while (board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)));
 
                     drawBoard(board);
 
