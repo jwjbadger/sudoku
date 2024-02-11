@@ -448,7 +448,7 @@ int main() {
 
                 drawStats(status, mode);
                 break;
-            case 'f': // F
+            case 'f':
                 if (mode != 'c')
                     break;
 
@@ -497,8 +497,8 @@ int main() {
                 }
                 break;
             default: // Handle numbers
-                if ('0' <= ch && '9' >= ch && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 20 && getcury(stdscr) <= 10) {
-                    board.play(getcury(stdscr) - (getcury(stdscr) / 4), (getcurx(stdscr) / 2) - ((getcurx(stdscr) / 2) / 4), ch - '0');
+                if ((ch == KEY_BACKSPACE || ('0' <= ch && '9' >= ch)) && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 20 && getcury(stdscr) <= 10) {
+                    board.play(getcury(stdscr) - (getcury(stdscr) / 4), (getcurx(stdscr) / 2) - ((getcurx(stdscr) / 2) / 4), ch == KEY_BACKSPACE ? 0 : ch - '0');
                     
                     int x = getcurx(stdscr), y = getcury(stdscr);
 

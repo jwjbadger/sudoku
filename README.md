@@ -2,6 +2,6 @@
 -   [x] Seperate into 3x3 grids
 -   [ ] Stay on the same number if invalid input (red highlight)
 -   [ ] Reformat code
--   [ ] Backspace should do the same thing as 0
+-   [x] Backspace should do the same thing as 0
 -   [ ] Jump within square instead of jumping within row
 -   [ ] Hint button of some kind
