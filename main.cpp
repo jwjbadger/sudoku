@@ -1,4 +1,3 @@
-// CHANGE THAt
 #include <iostream>
 #include <algorithm>
 #include <iterator>
@@ -90,7 +89,7 @@ class Board {
             return true;
         }
 
-        bool solve(int row = 0, int col = 0) {            
+        bool solve(int row, int col) {
             if (col > 8) {
                 if (row == 8)
                     return true;
@@ -114,6 +113,15 @@ class Board {
             }
 
             return false;
+        }
+
+        bool solve() {
+            if (!validate())
+                return false;
+            if (full())
+                return true;
+            
+            return solve(0, 0);
         }
 
         int unique(int row = 0, int col = 0, int num = 0) {
@@ -172,8 +180,6 @@ class Board {
                         *(shuffledBoard[i]) = options[k];
                         
                         int numSolutions = unique();
-                        mvprintw(20, 20, "%i, %i", i, numSolutions);
-                        refresh();
                         
                         if (numSolutions > 1)
                             break;
@@ -183,19 +189,7 @@ class Board {
                             *(shuffledBoard[i]) = 0;
                     }
                 }
-
             }
-        }
-
-        friend std::ostream& operator<<(std::ostream& os, const Board& board) {
-            for (int i = 0; i < 9; ++i) {
-                for (int j = 0; j < 9; ++j) {
-                    os << board._board[i][j] << " ";
-                }
-                os << std::endl;
-            }
-
-            return os;
         }
 
         operator const char*() const {
@@ -230,6 +224,70 @@ class Board {
         }
 };
 
+void drawBoard(Board board) {
+    for (int i = 0; i < 9; ++i) {
+        for (int j = 0; j < 9; ++j) {
+            move(i + (i / 3), j * 2 + (j / 3) * 2);
+
+            if (!board.canMove(i, j, board[i][j])) {
+                attron(COLOR_PAIR(1));
+                printw("%i", board[i][j]);
+                attroff(COLOR_PAIR(1));
+            } else {
+                printw("%i", board[i][j]);
+            }
+        }
+    }
+
+    move(0, 0);
+    refresh();
+}
+
+void drawStats(char status, char mode) {
+    switch (status) {
+        case 'i':
+            mvprintw(0, 34, "%s", "User Input        ");
+            break;
+        case 'u':
+            mvprintw(0, 34, "%s", "User Solving      ");
+            break;
+        case 'g':
+            mvprintw(0, 34, "%s", "Generating...     ");
+            break;
+        case 's':
+            mvprintw(0, 34, "%s", "Solving...        ");
+            break;
+        case 'd':
+            attron(COLOR_PAIR(2));
+            mvprintw(0, 34, "%s", "DONE              ");
+            attroff(COLOR_PAIR(2));
+            break;
+        case 'f':
+            attron(COLOR_PAIR(1));
+            mvprintw(0, 34, "%s", "FAILED TO SOLVE   ");
+            attroff(COLOR_PAIR(1));
+            break;
+        default:
+            mvprintw(0, 34, "%s", "ERROR             ");
+            break;
+    }
+
+    switch (mode) {
+        case 'c':
+            mvprintw(1, 32, "%s", "Command           ");
+            break;
+        case 'e':
+            mvprintw(1, 32, "%s", "Edit              ");
+            break;
+        default:
+            mvprintw(1, 32, "%s", "ERROR             ");
+            break;
+    }
+
+    move(0, 0);
+    refresh();
+}
+
 int main() {
     initscr();
     keypad(stdscr, TRUE);
@@ -237,18 +295,24 @@ int main() {
     cbreak();
 
     Board board;
-    printw("%s", static_cast<const char*>(board));
-    move(0, 0);
 
     start_color();
-    init_pair(1, COLOR_WHITE, COLOR_RED);
-    init_pair(2, COLOR_WHITE, COLOR_GREEN);
+    init_pair(1, COLOR_RED, COLOR_BLACK);
+    init_pair(2, COLOR_GREEN, COLOR_BLACK);
+    init_pair(3, COLOR_BLUE, COLOR_BLACK);
 
     char mode = 'c';
-    
-    board.generate();
-    move(0, 0);
-    printw("%s", static_cast<const char *>(board));
+    char status = 'i';
+
+    mvprintw(0, 0, "%s", static_cast<const char *>(board));
+
+    attron(COLOR_PAIR(3));
+    mvprintw(0, 26, "Status: ");
+    mvprintw(1, 26, "Mode: ");
+    attroff(COLOR_PAIR(3));
+
+    drawStats(status, mode);
+
     move(0, 0);
 
     for (int ch = getch(); ch != 'q'; ch = getch()) {
@@ -297,15 +361,23 @@ int main() {
                     curs_set(1);
                     mode = 'c';
                 }
-                refresh();
+
+                drawStats(status, mode);
                 break;
             case 103: // G
                 if (mode == 'c') {
+                    status = 'g';
+                    drawStats(status, mode);
+
                     board.generate();
 
-                    move(0, 0);
+                    if (board.unique() == 1)
+                        status = 'u';
+                    else
+                        status = 'E';
 
-                    printw("%s", static_cast<const char *>(board));
+                    drawBoard(board);
+                    drawStats(status, mode);
 
                     move(0, 0);
                 }
@@ -313,16 +385,17 @@ int main() {
                 break;
             case 115: // S
                 if (mode == 'c') {
+                    status = 's';
+                    drawStats(status, mode);
+
                     board.solve();
 
-                    move(0, 0);
-
                     if (board.full() && board.validate())
-                        attron(COLOR_PAIR(2));
-                    printw("%s", static_cast<const char *>(board));
-                    attroff(COLOR_PAIR(2));
-
-                    move(0, 0);
+                        status = 'd';
+                    else
+                        status = 'f';
+                    drawStats(status, mode);
+                    drawBoard(board);
                 }
                 break;
             default: // Handle numbers
@@ -342,31 +415,9 @@ int main() {
                             ++y; 
                     }
 
-                    for (int i = 0; i < 9; ++i) {
-                        for (int j = 0; j < 9; ++j) {
-                            move(i + (i / 3), j * 2 + (j / 3) * 2);
-
-                            if (!board.canMove(i, j, board[i][j])) {
-                                attron(COLOR_PAIR(1));
-                                printw("%i", board[i][j]);
-                                attroff(COLOR_PAIR(1));
-                            } else {
-                                printw("%i", board[i][j]);
-                            }
-                        }
-                    }
+                    drawBoard(board);
 
                     move(y, x);
-
-                    if (board.full() && board.validate()) {
-                        clear();
-
-                        attron(COLOR_PAIR(2));
-                        printw("%s", static_cast<const char*>(board));
-                        attroff(COLOR_PAIR(2));
-
-                        move(0, 0);
-                    }
                 }
                 break;
         }
