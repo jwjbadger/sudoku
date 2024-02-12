@@ -5,3 +5,4 @@
 -   [x] Backspace should do the same thing as 0
 -   [x] Jump within square instead of jumping within row
 -   [ ] Hint button of some kind
+-   [x] Make generate operate more efficiently 
