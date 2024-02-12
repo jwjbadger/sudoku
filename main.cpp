@@ -504,20 +504,38 @@ int main() {
 
                     if (ch != KEY_BACKSPACE && ch != '0' && board.canMove(y - (y / 4), (x / 2) - ((x / 2) / 4), ch - '0')) {
                         do {
-                            if (x < 20) {
+                            // if (x < 20) {
+                            //     x += 2;
+                            //     if ((x + 2) % 8 == 0 && x > 0)
+                            //         x += 2;
+                            // } else if (y < 10) {
+                            //     y += 1;
+                            //     if ((y + 1) % 4 == 0 && y > 0)
+                            //         ++y; 
+                            //     x = 0;
+                            // } else {
+                            //     x = 0;
+                            //     y = 0;
+                            // }
+                            if (((x + 2) % 8 == 6) && (y + 1) % 4 == 3) {
+                                if (x == 20) {
+                                    if (y < 10)
+                                        y += 2;
+                                    else
+                                        y = 0;
+                                    x = 0;
+                                } else {
+                                    x += 4;
+                                    y -= 2;
+                                }
+                            } else if ((x + 2) % 8 < 6) {
                                 x += 2;
-                                if ((x + 2) % 8 == 0 && x > 0)
-                                    x += 2;
-                            } else if (y < 10) {
-                                y += 1;
-                                if ((y + 1) % 4 == 0 && y > 0)
-                                    ++y; 
-                                x = 0;
                             } else {
-                                x = 0;
-                                y = 0;
+                                x -= 4;
+                                ++y;
                             }
-                        } while (board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)));
+
+                        } while ((board.full() || board[y - (y / 4)][(x / 2) - ((x / 2) / 4)] != 0) && board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)));
                     }
 
                     drawBoard(board);

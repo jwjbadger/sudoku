@@ -3,5 +3,5 @@
 -   [x] Stay on the same number if invalid input (red highlight)
 -   [ ] Reformat code
 -   [x] Backspace should do the same thing as 0
--   [ ] Jump within square instead of jumping within row
+-   [x] Jump within square instead of jumping within row
 -   [ ] Hint button of some kind
