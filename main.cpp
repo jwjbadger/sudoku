@@ -498,25 +498,27 @@ int main() {
                 break;
             default: // Handle numbers
                 if ((ch == KEY_BACKSPACE || ('0' <= ch && '9' >= ch)) && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 20 && getcury(stdscr) <= 10) {
-                    board.play(getcury(stdscr) - (getcury(stdscr) / 4), (getcurx(stdscr) / 2) - ((getcurx(stdscr) / 2) / 4), ch == KEY_BACKSPACE ? 0 : ch - '0');
-                    
                     int x = getcurx(stdscr), y = getcury(stdscr);
 
-                    do {
-                        if (x < 20) {
-                            x += 2;
-                            if ((x + 2) % 8 == 0 && x > 0)
+                    board.play(y - (y / 4), (x / 2) - ((x / 2) / 4), ch == KEY_BACKSPACE ? 0 : ch - '0');
+
+                    if (ch != KEY_BACKSPACE && ch != '0' && board.canMove(y - (y / 4), (x / 2) - ((x / 2) / 4), ch - '0')) {
+                        do {
+                            if (x < 20) {
                                 x += 2;
-                        } else if (y < 10) {
-                            y += 1;
-                            if ((y + 1) % 4 == 0 && y > 0)
-                                ++y; 
-                            x = 0;
-                        } else {
-                            x = 0;
-                            y = 0;
-                        }
-                    } while (board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)));
+                                if ((x + 2) % 8 == 0 && x > 0)
+                                    x += 2;
+                            } else if (y < 10) {
+                                y += 1;
+                                if ((y + 1) % 4 == 0 && y > 0)
+                                    ++y; 
+                                x = 0;
+                            } else {
+                                x = 0;
+                                y = 0;
+                            }
+                        } while (board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)));
+                    }
 
                     drawBoard(board);
 
