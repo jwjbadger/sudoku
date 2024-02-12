@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <iterator>
 #include <random>
+#include <fstream>
+#include <string>
 #include <ncurses.h>
 
 class Board {
@@ -13,7 +15,7 @@ class Board {
     public:
         Board() {}
 
-        Board(Board &copy) : _numFixed(copy._numFixed) {
+        Board(const Board &copy) : _numFixed(copy._numFixed) {
             for (int i = 0; i < 9; ++i)
                 for (int j = 0; j < 9; ++j)
                     _board[i][j] = copy[i][j];
@@ -21,6 +23,12 @@ class Board {
             _fixed = new int[_numFixed];
             for (int i = 0; i < _numFixed; ++i)
                 _fixed[i] = copy._fixed[i]; 
+        }
+
+        Board(std::string serialized) {
+            for (int i = 0; i < 81; ++i) {
+                _board[i / 9][i % 9] = serialized[i] - '0';
+            }
         }
 
         ~Board() {
@@ -81,6 +89,56 @@ class Board {
                         ++count; 
 
             return count;
+        }
+
+        void rotate(int times) {
+            if (times == 0)
+                return;
+
+            Board old = *this;
+
+            switch (times) {
+                case 1:
+                    for (int i = 0; i < 9; ++i)
+                        for (int j = 0; j < 9; ++j)
+                            _board[i][j] = old[j][8 - i];
+                    break;
+                case 2:
+                    for (int i = 0; i < 9; ++i)
+                        for (int j = 0; j < 9; ++j)
+                            _board[i][j] = old[8 - i][8 - j];
+                    break;
+                case 3:
+                    for (int i = 0; i < 9; ++i)
+                        for (int j = 0; j < 9; ++j)
+                            _board[i][j] = old[8 - j][i];
+                    break;
+            }
+        }
+
+        void reflect(int axis) {
+            if (axis == 0)
+                return;
+
+            Board old = *this;
+
+            switch (axis) {
+                case 1:
+                    for (int i = 0; i < 9; ++i)
+                        for (int j = 0; j < 9; ++j)
+                            _board[i][j] = old[8 - i][j];
+                    break;
+                case 2:
+                    for (int i = 0; i < 9; ++i)
+                        for (int j = 0; j < 9; ++j)
+                            _board[i][j] = old[i][8 - j];
+                    break;
+                case 3:
+                    for (int i = 0; i < 9; ++i)
+                        for (int j = 0; j < 9; ++j)
+                            _board[i][j] = old[8 - i][8 - j];
+                    break;
+            }
         }
 
         bool validate() {
@@ -213,14 +271,40 @@ class Board {
             return num;
         }
 
-        void generate() {            
+        void generate(std::string file = "seeds.dat") {
+            std::ifstream binary_file(file, std::ios::in | std::ios::binary);
+
+            std::random_device dev;
+            std::mt19937 rng(dev());
+
+            std::string line, result;
+            for(std::size_t i = 0; std::getline(binary_file, line); ++i) {
+                std::uniform_int_distribution<> dist(0, i);
+                if (dist(rng) < 1)
+                    result = line;
+            }
+            binary_file.close();
+
+            int options[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+            std::shuffle(std::begin(options) + 1, std::end(options), rng);
+            for (int i = 0; i < 81; ++i)
+                _board[i / 9][i % 9] = options[result[i] - '0'];
+
+            std::uniform_int_distribution<> dist(0, 3);
+            rotate(dist(rng));
+            reflect(dist(rng));
+
+            fix();
+        }
+
+        static Board generateSeed() {     
+            Board board;
+
             int *shuffledBoard[81] = {};
 
-            for (int i = 0; i < 9; ++i) {
-                for (int j = 0; j < 9; ++j) {
-                    shuffledBoard[i * 9 + j] = &_board[i][j]; 
-                }
-            }
+            for (int i = 0; i < 9; ++i)
+                for (int j = 0; j < 9; ++j)
+                    shuffledBoard[i * 9 + j] = &board._board[i][j]; 
 
             std::random_device rd;
             std::mt19937 g(rd());
@@ -234,14 +318,14 @@ class Board {
                 std::shuffle(std::begin(options), std::end(options), g);
 
                 for (int k = 0; k < 9; ++k) {
-                   if (canMove((shuffledBoard[i] - &(_board[0][0])) / 9, (shuffledBoard[i] - &(_board[0][0])) % 9, options[k])) {
+                   if (board.canMove((shuffledBoard[i] - &(board._board[0][0])) / 9, (shuffledBoard[i] - &(board._board[0][0])) % 9, options[k])) {
                         *(shuffledBoard[i]) = options[k];
                         
-                        int numSolutions = unique();
+                        int numSolutions = board.unique();
                         
                         if (numSolutions == 1) {
-                            fix();
-                            return;
+                            board.fix();
+                            return board;
                         } else if (numSolutions > 1) {
                             break;
                         } else {
@@ -251,7 +335,18 @@ class Board {
                 }
             }
 
-            fix(); 
+            board.fix();
+            return board; 
+        }
+
+        friend std::ostream& operator<<(std::ostream& os, const Board& board) {
+            for (int i = 0; i < 9; ++i) {
+                for (int j = 0; j < 9; ++j) {
+                    os << board._board[i][j];
+                }
+            }
+
+            return os;
         }
 
         operator const char*() const {
@@ -358,7 +453,73 @@ void drawStats(char status, char mode) {
     refresh();
 }
 
-int main() {
+int main(int argc, char **argv) {
+    std::string seedsFile = "seeds.dat";
+
+    if (argc > 1) {
+        if (std::find(argv, argv + argc, std::string("-h")) != argv + argc) {
+            std::cout << "usage: sudoku [options]" << std::endl;
+            std::cout << "options:" << std::endl;
+            std::cout << "  sudoku -g [num]         | generates [num] seeds for sudoku puzzles (100 by default) and exports to seeds.dat" << std::endl;
+            std::cout << "  sudoku -t [file]        | tests [file] for seeds with unique solutions" << std::endl;
+            std::cout << "  sudoku -s [file]        | sets the source for seeds to be [file] (seeds.dat by default)" << std::endl;
+            return 0;
+        }
+
+        char **g = std::find(argv, argv + argc, std::string("-g"));
+        if (g != argv + argc) {
+            initscr();
+            noecho();
+            cbreak();
+
+            int num = (g + 1) == argv + argc ? 100 : std::stoi(*(g + 1));
+
+            mvaddstr(0, 0, "Generating seeds for sudoku puzzles:");
+            mvprintw(1, 0, "[                    ] (0/%i)", num);
+            refresh();
+
+            std::ofstream binary_file("seeds.dat", std::ios::out | std::ios::binary | std::ios::app);
+            for (int i = 0; i < num; ++i) {
+                Board board = Board::generateSeed();
+
+                binary_file << board << std::endl;
+
+                for (int j = 0; j < ((20 * (i + 1)) / num); ++j)
+                    mvaddch(1, j + 1, '#');
+                mvprintw(1, 23, "(%i/%i)", i + 1, num);
+                refresh();
+            }
+            binary_file.close();
+
+            endwin();
+            return 0;
+        }
+
+        char **t = std::find(argv, argv + argc, std::string("-t"));
+        if (t != argv + argc) {
+            std::ifstream binary_file(*(t + 1), std::ios::in | std::ios::binary);
+
+            std::string line;
+            while (std::getline(binary_file, line)) {
+                Board board(line);
+                if (board.unique() != 1) {
+                    binary_file.close();
+                    std::cout << "FAILED" << std::endl;
+                    return 1;
+                }
+            }
+
+            binary_file.close();
+            std::cout << "PASSED" << std::endl;
+            return 0;
+        }
+
+        char **s = std::find(argv, argv + argc, std::string("-s"));
+        if (s != argv + argc) {
+            seedsFile = *(s + 1);
+        }
+    }
+
     initscr();
     keypad(stdscr, TRUE);
     noecho();
@@ -468,7 +629,7 @@ int main() {
                 status = 'g';
                 drawStats(status, mode);
 
-                board.generate();
+                board.generate(seedsFile);
 
                 if (board.unique() == 1)
                     status = 'u';
@@ -504,19 +665,6 @@ int main() {
 
                     if (ch != KEY_BACKSPACE && ch != '0' && board.canMove(y - (y / 4), (x / 2) - ((x / 2) / 4), ch - '0')) {
                         do {
-                            // if (x < 20) {
-                            //     x += 2;
-                            //     if ((x + 2) % 8 == 0 && x > 0)
-                            //         x += 2;
-                            // } else if (y < 10) {
-                            //     y += 1;
-                            //     if ((y + 1) % 4 == 0 && y > 0)
-                            //         ++y; 
-                            //     x = 0;
-                            // } else {
-                            //     x = 0;
-                            //     y = 0;
-                            // }
                             if (((x + 2) % 8 == 6) && (y + 1) % 4 == 3) {
                                 if (x == 20) {
                                     if (y < 10)
@@ -534,7 +682,6 @@ int main() {
                                 x -= 4;
                                 ++y;
                             }
-
                         } while ((board.full() || board[y - (y / 4)][(x / 2) - ((x / 2) / 4)] != 0) && board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)));
                     }
 
