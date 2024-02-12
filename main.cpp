@@ -526,13 +526,12 @@ int main(int argc, char **argv) {
     cbreak();
 
     mousemask(ALL_MOUSE_EVENTS, NULL);
+    MEVENT event;
 
     start_color();
     init_pair(1, COLOR_RED, COLOR_BLACK);
     init_pair(2, COLOR_GREEN, COLOR_BLACK);
     init_pair(3, COLOR_BLUE, COLOR_BLACK);
-
-    MEVENT event;
 
     Board board;
 
@@ -544,10 +543,25 @@ int main(int argc, char **argv) {
     attron(COLOR_PAIR(3));
     mvprintw(0, 26, "Status: ");
     mvprintw(1, 26, "Mode: ");
+    mvprintw(3, 26, "Keybinds:");
+    mvprintw(4, 30, "Movement: ");
+    mvprintw(5, 30, "Switch edit/command mode: ");
+    mvprintw(6, 30, "Generate: ");
+    mvprintw(7, 30, "Finish Initial Input: ");
+    mvprintw(8, 30, "Solve: ");
+    mvprintw(9, 30, "Input: ");
+    mvprintw(10, 30, "Reset Cell: ");
     attroff(COLOR_PAIR(3));
 
-    drawStats(status, mode);
+    mvprintw(4, 40, "Arrow Keys");
+    mvprintw(5, 56, "Enter");
+    mvprintw(6, 40, "G");
+    mvprintw(7, 52, "F");
+    mvprintw(8, 37, "S");
+    mvprintw(9, 37, "[0-9]");
+    mvprintw(10, 42, "Backspace");
 
+    drawStats(status, mode);
     move(0, 0);
 
     for (int ch = getch(); ch != 'q'; ch = getch()) {
@@ -602,9 +616,12 @@ int main(int argc, char **argv) {
                 if (mode == 'c') {
                     curs_set(2);
                     mode = 'e';
+                    status = 'u';
                 } else if (mode == 'e') {
                     curs_set(1);
                     mode = 'c';
+                    if (board.validate() && board.full())
+                        status = 'd';
                 }
 
                 drawStats(status, mode);
@@ -658,12 +675,12 @@ int main(int argc, char **argv) {
                 }
                 break;
             default: // Handle numbers
-                if ((ch == KEY_BACKSPACE || ('0' <= ch && '9' >= ch)) && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 20 && getcury(stdscr) <= 10) {
+                if ((ch == 127 || ch == KEY_BACKSPACE || ch == 8 || ('0' <= ch && '9' >= ch)) && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 20 && getcury(stdscr) <= 10) {
                     int x = getcurx(stdscr), y = getcury(stdscr);
 
-                    board.play(y - (y / 4), (x / 2) - ((x / 2) / 4), ch == KEY_BACKSPACE ? 0 : ch - '0');
+                    board.play(y - (y / 4), (x / 2) - ((x / 2) / 4), '0' <= ch && '9' >= ch ? ch - '0' : 0);
 
-                    if (ch != KEY_BACKSPACE && ch != '0' && board.canMove(y - (y / 4), (x / 2) - ((x / 2) / 4), ch - '0')) {
+                    if (ch <= '9' && ch > '0' && board.canMove(y - (y / 4), (x / 2) - ((x / 2) / 4), ch - '0')) {
                         do {
                             if (((x + 2) % 8 == 6) && (y + 1) % 4 == 3) {
                                 if (x == 20) {
