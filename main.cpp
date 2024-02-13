@@ -409,6 +409,8 @@ void drawBoard(Board board) {
 void drawStats(char status, char mode) {
     int x = getcurx(stdscr), y = getcury(stdscr);
 
+    mvprintw(0, 50, "                    ");
+
     switch (status) {
         case 'i':
             mvprintw(0, 34, "%s", "User Input        ");
@@ -550,7 +552,7 @@ int main(int argc, char **argv) {
     mvprintw(7, 30, "Finish Initial Input: ");
     mvprintw(8, 30, "Solve: ");
     mvprintw(9, 30, "Input: ");
-    mvprintw(10, 30, "Reset Cell: ");
+    mvprintw(10, 30, "Hint: ");
     attroff(COLOR_PAIR(3));
 
     mvprintw(4, 40, "Arrow Keys");
@@ -558,8 +560,8 @@ int main(int argc, char **argv) {
     mvprintw(6, 40, "G");
     mvprintw(7, 52, "F");
     mvprintw(8, 37, "S");
-    mvprintw(9, 37, "[0-9]");
-    mvprintw(10, 42, "Backspace");
+    mvprintw(9, 37, "Backspace | [0-9]");
+    mvprintw(10, 36, "H");
 
     drawStats(status, mode);
     move(0, 0);
@@ -674,6 +676,61 @@ int main(int argc, char **argv) {
                     drawBoard(board);
                 }
                 break;
+            case 'h':
+                if (mode == 'c') {
+                    if (status == 'd')
+                        break;
+
+                    int x = getcurx(stdscr), y = getcury(stdscr);
+
+                    attron(COLOR_PAIR(3));
+                    mvprintw(0, 50, "Hint: ");
+                    attroff(COLOR_PAIR(3));
+
+                    if (board.unique() < 1) {
+                        attron(COLOR_PAIR(1));
+                        mvprintw(0, 56, "NOT SOLVABLE");
+                        attroff(COLOR_PAIR(1));
+
+                        move(y, x);
+                        break;
+                    }
+
+                    Board solution = board;
+                    solution.fix();
+                    solution.solve();
+
+                    std::random_device dev;
+                    std::mt19937 rng(dev());
+                    std::uniform_int_distribution<> dist(0, 80);
+
+                    int index = dist(rng);
+                    while (board[index / 9][index % 9] != 0) {
+                        if (index < 80)
+                            ++index;
+                        else
+                            index = 0;
+                    }
+
+                    board.play(index / 9, index % 9, solution[index / 9][index % 9]);
+                    drawBoard(board);
+
+                    attron(COLOR_PAIR(2));
+                    mvprintw((index / 9) + ((index / 9) / 3), ((index % 9) + ((index % 9) / 3)) * 2, "%i", board[index / 9][index % 9]);
+                    attroff(COLOR_PAIR(2));
+
+                    attron(COLOR_PAIR(2));
+                    mvprintw(0, 56, "SOLVABLE");
+                    attroff(COLOR_PAIR(2));
+
+                    if (board.validate() && board.full()) {
+                        status = 'd';
+                        drawStats(status, mode);
+                    }
+
+                    move(y, x);
+                }
+                break;
             default: // Handle numbers
                 if ((ch == 127 || ch == KEY_BACKSPACE || ch == 8 || ('0' <= ch && '9' >= ch)) && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 20 && getcury(stdscr) <= 10) {
                     int x = getcurx(stdscr), y = getcury(stdscr);
@@ -703,6 +760,10 @@ int main(int argc, char **argv) {
                     }
 
                     drawBoard(board);
+
+                    if (board.validate() && board.full())
+                        status = 'd';
+                    drawStats(status, mode);
 
                     move(y, x);
                 }
