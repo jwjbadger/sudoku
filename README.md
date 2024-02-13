@@ -5,6 +5,6 @@
 -   [x] Jump within square instead of jumping within row
 -   [x] Make `generate()` operate more efficiently
 -   [x] Keybinds on side
--   [ ] Hint button of some kind
+-   [x] Hint button of some kind
 -   [ ] Reformat code
 -   [ ] Comment code
