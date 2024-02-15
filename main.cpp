@@ -4,7 +4,10 @@
 #include <random>
 #include <fstream>
 #include <string>
-#include <ncurses.h>
+#define _XOPEN_SOURCE_EXTENDED 1
+#include "ncurses.h"
+#include <locale.h>
+
 
 class Board {
     private:
@@ -349,24 +352,24 @@ class Board {
             return os;
         }
 
-        operator const char*() const {
-            static char ch[253] = "";
+        operator const wchar_t*() const {
+            static wchar_t ch[253] = L"";
 
             for (int i = 1; i < 12; ++i) {
                 for (int j = 1; j < 12; ++j) {
                     if (i != 0 && i % 4 == 0) {
                         if (j != 0 && j % 4 == 0)
-                            ch[(i - 1) * 23 + (j - 1) * 2] = '+';
+                            ch[(i - 1) * 23 + (j - 1) * 2] = L'┼';
                         else
-                            ch[(i - 1) * 23 + (j - 1) * 2] = '-';
-                        ch[(i - 1) * 23 + (j - 1) * 2 + 1] = j == 11 ? ' ' : '-';
+                            ch[(i - 1) * 23 + (j - 1) * 2] = L'─';
+                        ch[(i - 1) * 23 + (j - 1) * 2 + 1] = j == 11 ? L' ' : L'─';
                     } else {
                         if (j != 0 && j % 4 == 0) {
-                            ch[(i - 1) * 23 + (j - 1) * 2] = '|';
-                            ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = ' ';
+                            ch[(i - 1) * 23 + (j - 1) * 2] = L'│';
+                            ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = L' ';
                         } else {
-                            ch[(i - 1) * 23 + (j - 1) * 2] = '0' + _board[i - (i / 4) - 1][j - (j / 4) - 1];
-                            ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = ' ';
+                            ch[(i - 1) * 23 + (j - 1) * 2] = L'0' + _board[i - (i / 4) - 1][j - (j / 4) - 1];
+                            ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = L' ';
                         }
                     }
                 }
@@ -470,6 +473,8 @@ int main(int argc, char **argv) {
 
         char **g = std::find(argv, argv + argc, std::string("-g"));
         if (g != argv + argc) {
+            setlocale(LC_ALL, "");
+
             initscr();
             noecho();
             cbreak();
@@ -487,7 +492,7 @@ int main(int argc, char **argv) {
                 binary_file << board << std::endl;
 
                 for (int j = 0; j < ((20 * (i + 1)) / num); ++j)
-                    mvaddch(1, j + 1, '#');
+                    mvaddwstr(1, j + 1, L"▓");
                 mvprintw(1, 23, "(%i/%i)", i + 1, num);
                 refresh();
             }
@@ -522,6 +527,9 @@ int main(int argc, char **argv) {
         }
     }
 
+    setlocale(LC_ALL, "");
+    setlocale(LC_NUMERIC,"C");
+
     initscr();
     keypad(stdscr, TRUE);
     noecho();
@@ -540,7 +548,7 @@ int main(int argc, char **argv) {
     char mode = 'c';
     char status = 'i';
 
-    mvprintw(0, 0, "%s", static_cast<const char *>(board));
+    mvprintw(0, 0, "%ls", static_cast<const wchar_t *>(board));
 
     attron(COLOR_PAIR(3));
     mvprintw(0, 26, "Status: ");

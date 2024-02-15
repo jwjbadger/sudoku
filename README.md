@@ -6,5 +6,6 @@
 -   [x] Make `generate()` operate more efficiently
 -   [x] Keybinds on side
 -   [x] Hint button of some kind
+-   [ ] Fix compiling wide chars
 -   [ ] Reformat code
 -   [ ] Comment code
