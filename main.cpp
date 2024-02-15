@@ -4,10 +4,14 @@
 #include <random>
 #include <fstream>
 #include <string>
-#define _XOPEN_SOURCE_EXTENDED 1
-#include "ncurses.h"
 #include <locale.h>
 
+#ifdef __APPLE__
+    #define _XOPEN_SOURCE_EXTENDED 1
+    #include <ncurses.h>
+#else
+    #include <ncursesw/ncurses.h>
+#endif
 
 class Board {
     private:
