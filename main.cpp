@@ -13,6 +13,9 @@
     #include <ncursesw/ncurses.h>
 #endif
 
+enum Colors { Bad = 1, Good = 2, Fixed = 3 };
+enum Status { UserInput, UserSolve, Generate, Solve, Solved, Error };
+
 class Board {
     private:
         int _board[9][9] = {};
@@ -355,112 +358,314 @@ class Board {
 
             return os;
         }
+};
 
-        operator const wchar_t*() const {
-            static wchar_t ch[253] = L"";
+class Game {
+    private:
+        Board _board;
+        std::string _seeds = "seeds.dat";
+        MEVENT _event;
+        int _status = Status::UserInput;
+
+    public:
+        Game(std::string seeds = "seeds.dat") : _seeds(seeds) {
+            setlocale(LC_ALL, "");
+            setlocale(LC_NUMERIC,"C");
+
+            initscr();
+            keypad(stdscr, TRUE);
+            noecho();
+            cbreak();
+
+            mousemask(ALL_MOUSE_EVENTS, NULL);
+
+            start_color();
+            init_pair(Colors::Bad, COLOR_RED, COLOR_BLACK);
+            init_pair(Colors::Good, COLOR_GREEN, COLOR_BLACK);
+            init_pair(Colors::Fixed, COLOR_BLUE, COLOR_BLACK);
+
+            initDisplay();
+            updateTUI();
+
+            move(0, 0);
+        }
+
+        ~Game() {
+            endwin();
+        }
+
+        void setCursor(int r, int c) {
+            move(r + (r / 3), c * 2 + (c / 3) * 2);
+        }
+
+        void updateTUI() {
+            int x = getcurx(stdscr), y = getcury(stdscr);
+
+            mvprintw(0, 50, "                  ");
+
+            switch (_status) {
+                case Status::UserInput:
+                    mvprintw(0, 34, "%s", "User Input        ");
+                    break;
+                case Status::UserSolve:
+                    mvprintw(0, 34, "%s", "User Solving      ");
+                    break;
+                case Status::Generate:
+                    mvprintw(0, 34, "%s", "Generating...     ");
+                    break;
+                case Status::Solve:
+                    mvprintw(0, 34, "%s", "Solving...        ");
+                    break;
+                case Status::Solved:
+                    attron(COLOR_PAIR(Colors::Good));
+                    mvprintw(0, 34, "%s", "DONE              ");
+                    attroff(COLOR_PAIR(Colors::Good));
+                    break;
+                case Status::Error:
+                    attron(COLOR_PAIR(Colors::Bad));
+                    mvprintw(0, 34, "%s", "ERROR             ");
+                    attroff(COLOR_PAIR(Colors::Bad));
+                    break;
+                default:
+                    attron(COLOR_PAIR(Colors::Bad));
+                    mvprintw(0, 34, "%s", "INVALID STATUS    ");
+                    attroff(COLOR_PAIR(Colors::Bad));
+            }
+
+            for (int i = 0; i < 9; ++i) {
+                for (int j = 0; j < 9; ++j) {
+                    setCursor(i, j);
+                    
+                    if (_board.fixed(i, j)) {
+                        attron(COLOR_PAIR(Colors::Fixed));
+                        printw("%i", _board[i][j]);
+                        attroff(COLOR_PAIR(Colors::Fixed));
+                    } else if (!_board.canMove(i, j, _board[i][j])) {
+                        attron(COLOR_PAIR(Colors::Bad));
+                        printw("%i", _board[i][j]);
+                        attroff(COLOR_PAIR(Colors::Bad));
+                    } else {
+                        printw("%i", _board[i][j]);
+                    }
+                }
+            }
+
+            move(y, x);
+            refresh();
+        }
+
+        void initDisplay() {
+            attron(COLOR_PAIR(Colors::Fixed));
+            mvprintw(0, 26, "Status: ");
+            mvprintw(2, 26, "Keybinds:");
+            mvprintw(3, 30, "Movement: ");
+            mvprintw(4, 30, "Generate: ");
+            mvprintw(5, 30, "Finish Initial Input: ");
+            mvprintw(6, 30, "Solve: ");
+            mvprintw(7, 30, "Input: ");
+            mvprintw(8, 30, "Hint: ");
+            attroff(COLOR_PAIR(Colors::Fixed));
+
+            mvprintw(3, 40, "Arrow Keys");
+            mvprintw(4, 40, "G");
+            mvprintw(5, 52, "F");
+            mvprintw(6, 37, "S");
+            mvprintw(7, 37, "Backspace | [0-9]");
+            mvprintw(8, 36, "H");
 
             for (int i = 1; i < 12; ++i) {
                 for (int j = 1; j < 12; ++j) {
-                    if (i != 0 && i % 4 == 0) {
-                        if (j != 0 && j % 4 == 0)
-                            ch[(i - 1) * 23 + (j - 1) * 2] = L'┼';
+                    if (i % 4 == 0) {
+                        if (j % 4 == 0)
+                            mvprintw(i - 1, (j - 1) * 2, "%ls", L"┼─");
                         else
-                            ch[(i - 1) * 23 + (j - 1) * 2] = L'─';
-                        ch[(i - 1) * 23 + (j - 1) * 2 + 1] = j == 11 ? L' ' : L'─';
-                    } else {
-                        if (j != 0 && j % 4 == 0) {
-                            ch[(i - 1) * 23 + (j - 1) * 2] = L'│';
-                            ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = L' ';
-                        } else {
-                            ch[(i - 1) * 23 + (j - 1) * 2] = L'0' + _board[i - (i / 4) - 1][j - (j / 4) - 1];
-                            ch[((i - 1) * 23) + ((j - 1) * 2) + 1] = L' ';
-                        }
+                            mvprintw(i - 1, (j - 1) * 2, "%ls", L"──");
+                    } else if (j % 4 == 0) {
+                            mvprintw(i - 1, (j - 1) * 2, "%ls", L"│");
                     }
                 }
-                
-                if (i < 11)
-                    ch[(i - 1) * 23 + 22] = '\n';
             }
-            
-            ch[252] = '\0';
+        }
 
-            return ch;
+        void loop() {
+            for (int ch = getch(); ch != 'q'; ch = getch()) {
+                switch (ch) {
+                    case KEY_MOUSE:
+                        if (getmouse(&_event) != OK)
+                            break;
+
+                        if (!(_event.bstate & BUTTON1_CLICKED))
+                            break;
+
+                        {
+                            int x = _event.x, y = _event.y;
+                            if ((y <= 10 && x <= 20) && (y + 1) % 4 != 0 && (x + 2) % 8 != 0 && x % 2 == 0)
+                                move(y, x);
+                        }
+
+                        break;
+                    case KEY_UP:
+                        if (getcury(stdscr) > 0) {
+                            move(getcury(stdscr) - 1, getcurx(stdscr));
+                            if ((getcury(stdscr) + 1) % 4 == 0)
+                                move(getcury(stdscr) - 1, getcurx(stdscr));
+                        } else {
+                            move(10, getcurx(stdscr));
+                        }
+                        break;
+                    case KEY_RIGHT:
+                        if (getcurx(stdscr) < 20) {
+                            move(getcury(stdscr), getcurx(stdscr) + 2);
+                            if ((getcurx(stdscr) + 2) % 8 == 0)
+                                move(getcury(stdscr), getcurx(stdscr) + 2);
+                        } else {
+                            move(getcury(stdscr), 0);
+                        }
+                        break;
+                    case KEY_DOWN:
+                        if (getcury(stdscr) < 10) {
+                            move(getcury(stdscr) + 1, getcurx(stdscr));
+                            if ((getcury(stdscr) + 1) % 4 == 0)
+                                move(getcury(stdscr) + 1, getcurx(stdscr));
+                        } else {
+                            move(0, getcurx(stdscr));
+                        }
+                        break;
+                    case KEY_LEFT:
+                        if (getcurx(stdscr) > 0) {
+                            move(getcury(stdscr), getcurx(stdscr) - 2);
+                            if ((getcurx(stdscr) + 2) % 8 == 0)
+                                move(getcury(stdscr), getcurx(stdscr) - 2);
+                        } else {
+                            move(getcury(stdscr), 20);
+                        }
+                        break;
+                    case 'f':
+                        if (!_board.fix())
+                            break;
+
+                        _status = Status::UserInput;
+                        updateTUI();
+                        break;
+                    case 'g':
+                        _status = Status::Generate;
+                        updateTUI();
+
+                        _board.generate(_seeds);
+
+                        if (_board.unique() == 1)
+                            _status = Status::UserInput;
+                        else
+                            _status = Status::Error;
+
+                        updateTUI();
+                        move(0, 0);
+                        break;
+                    case 's':
+                        _status = Status::Solve;
+                        updateTUI();
+
+                        _board.solve();
+
+                        if (_board.full() && _board.validate())
+                            _status = Status::Solved;
+                        else
+                            _status = Status::Error;
+                        updateTUI();
+
+                        break;
+                    case 'h':
+                        if (_status == Status::Solved)
+                            break;
+
+                        {
+                            int x = getcurx(stdscr), y = getcury(stdscr);
+
+                            attron(COLOR_PAIR(Colors::Fixed));
+                            mvprintw(0, 50, "Hint: ");
+                            attroff(COLOR_PAIR(Colors::Fixed));
+
+                            if (_board.unique() < 1) {
+                                attron(COLOR_PAIR(Colors::Bad));
+                                mvprintw(0, 56, "NOT SOLVABLE");
+                                attroff(COLOR_PAIR(Colors::Bad));
+
+                                move(y, x);
+                                break;
+                            }
+
+                            Board solution = _board;
+                            solution.fix();
+                            solution.solve();
+
+                            std::random_device dev;
+                            std::mt19937 rng(dev());
+                            std::uniform_int_distribution<> dist(0, 80);
+
+                            int index = dist(rng);
+                            while (_board[index / 9][index % 9] != 0) {
+                                if (index < 80)
+                                    ++index;
+                                else
+                                    index = 0;
+                            }
+
+                            _board.play(index / 9, index % 9, solution[index / 9][index % 9]);
+
+                            attron(COLOR_PAIR(Colors::Good));
+                            mvprintw(0, 56, "SOLVABLE");
+                            attroff(COLOR_PAIR(Colors::Good));
+
+                            if (_board.validate() && _board.full())
+                                _status = Status::Solved;
+                            updateTUI();
+
+                            attron(COLOR_PAIR(Colors::Good));
+                            mvprintw((index / 9) + ((index / 9) / 3), ((index % 9) + ((index % 9) / 3)) * 2, "%i", _board[index / 9][index % 9]);
+                            attroff(COLOR_PAIR(Colors::Good));
+
+                            move(y, x);
+                        }
+                        break;
+                    default: // Handle numbers
+                        if ((ch == 127 || ch == KEY_BACKSPACE || ch == 8 || ('0' <= ch && '9' >= ch)) && getcurx(stdscr) % 2 == 0 && getcurx(stdscr) <= 20 && getcury(stdscr) <= 10) {
+                            int x = getcurx(stdscr), y = getcury(stdscr);
+
+                            _board.play(y - (y / 4), (x / 2) - ((x / 2) / 4), '0' <= ch && '9' >= ch ? ch - '0' : 0);
+
+                            if (ch <= '9' && ch > '0' && _board.canMove(y - (y / 4), (x / 2) - ((x / 2) / 4), ch - '0')) {
+                                do {
+                                    if (((x + 2) % 8 == 6) && (y + 1) % 4 == 3) {
+                                        if (x == 20) {
+                                            if (y < 10)
+                                                y += 2;
+                                            else
+                                                y = 0;
+                                            x = 0;
+                                        } else {
+                                            x += 4;
+                                            y -= 2;
+                                        }
+                                    } else if ((x + 2) % 8 < 6) {
+                                        x += 2;
+                                    } else {
+                                        x -= 4;
+                                        ++y;
+                                    }
+                                } while ((_board.full() || _board[y - (y / 4)][(x / 2) - ((x / 2) / 4)] != 0) && _board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)));
+                            }
+
+                            if (_board.validate() && _board.full())
+                                _status = Status::Solved;
+                            updateTUI();
+
+                            move(y, x);
+                        }
+                        break;
+                }
+            }
         }
 };
-
-void drawBoard(Board board) {
-    int x = getcurx(stdscr), y = getcury(stdscr);
-
-    for (int i = 0; i < 9; ++i) {
-        for (int j = 0; j < 9; ++j) {
-            move(i + (i / 3), j * 2 + (j / 3) * 2);
-            
-            if (board.fixed(i, j)) {
-                attron(COLOR_PAIR(3));
-                printw("%i", board[i][j]);
-                attroff(COLOR_PAIR(3));
-            } else if (!board.canMove(i, j, board[i][j])) {
-                attron(COLOR_PAIR(1));
-                printw("%i", board[i][j]);
-                attroff(COLOR_PAIR(1));
-            } else {
-                printw("%i", board[i][j]);
-            }
-        }
-    }
-
-    move(y, x);
-    refresh();
-}
-
-void drawStats(char status, char mode) {
-    int x = getcurx(stdscr), y = getcury(stdscr);
-
-    mvprintw(0, 50, "                    ");
-
-    switch (status) {
-        case 'i':
-            mvprintw(0, 34, "%s", "User Input        ");
-            break;
-        case 'u':
-            mvprintw(0, 34, "%s", "User Solving      ");
-            break;
-        case 'g':
-            mvprintw(0, 34, "%s", "Generating...     ");
-            break;
-        case 's':
-            mvprintw(0, 34, "%s", "Solving...        ");
-            break;
-        case 'd':
-            attron(COLOR_PAIR(2));
-            mvprintw(0, 34, "%s", "DONE              ");
-            attroff(COLOR_PAIR(2));
-            break;
-        case 'f':
-            attron(COLOR_PAIR(1));
-            mvprintw(0, 34, "%s", "FAILED TO SOLVE   ");
-            attroff(COLOR_PAIR(1));
-            break;
-        default:
-            mvprintw(0, 34, "%s", "ERROR             ");
-            break;
-    }
-
-    switch (mode) {
-        case 'c':
-            mvprintw(1, 32, "%s", "Command           ");
-            break;
-        case 'e':
-            mvprintw(1, 32, "%s", "Edit              ");
-            break;
-        default:
-            mvprintw(1, 32, "%s", "ERROR             ");
-            break;
-    }
-
-    move(y, x);
-    refresh();
-}
 
 int main(int argc, char **argv) {
     std::string seedsFile = "seeds.dat";
@@ -531,258 +736,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    setlocale(LC_ALL, "");
-    setlocale(LC_NUMERIC,"C");
-
-    initscr();
-    keypad(stdscr, TRUE);
-    noecho();
-    cbreak();
-
-    mousemask(ALL_MOUSE_EVENTS, NULL);
-    MEVENT event;
-
-    start_color();
-    init_pair(1, COLOR_RED, COLOR_BLACK);
-    init_pair(2, COLOR_GREEN, COLOR_BLACK);
-    init_pair(3, COLOR_BLUE, COLOR_BLACK);
-
-    Board board;
-
-    char mode = 'c';
-    char status = 'i';
-
-    mvprintw(0, 0, "%ls", static_cast<const wchar_t *>(board));
-
-    attron(COLOR_PAIR(3));
-    mvprintw(0, 26, "Status: ");
-    mvprintw(1, 26, "Mode: ");
-    mvprintw(3, 26, "Keybinds:");
-    mvprintw(4, 30, "Movement: ");
-    mvprintw(5, 30, "Switch edit/command mode: ");
-    mvprintw(6, 30, "Generate: ");
-    mvprintw(7, 30, "Finish Initial Input: ");
-    mvprintw(8, 30, "Solve: ");
-    mvprintw(9, 30, "Input: ");
-    mvprintw(10, 30, "Hint: ");
-    attroff(COLOR_PAIR(3));
-
-    mvprintw(4, 40, "Arrow Keys");
-    mvprintw(5, 56, "Enter");
-    mvprintw(6, 40, "G");
-    mvprintw(7, 52, "F");
-    mvprintw(8, 37, "S");
-    mvprintw(9, 37, "Backspace | [0-9]");
-    mvprintw(10, 36, "H");
-
-    drawStats(status, mode);
-    move(0, 0);
-
-    for (int ch = getch(); ch != 'q'; ch = getch()) {
-        switch (ch) {
-            case KEY_MOUSE:
-                if (getmouse(&event) != OK)
-                    break;
-
-                if (event.bstate & BUTTON1_CLICKED) {
-                    if ((event.y <= 10 && event.x <= 20) && (event.y == 0 || (event.y + 1) % 4 != 0) && (event.x == 0 || ((event.x + 2) % 8 != 0 && event.x % 2 == 0)))
-                        move(event.y, event.x);
-                }
-                break;
-            case KEY_UP:
-                if (getcury(stdscr) > 0) {
-                    move(getcury(stdscr) - 1, getcurx(stdscr));
-                    if ((getcury(stdscr) + 1) % 4 == 0 && getcury(stdscr) > 0)
-                        move(getcury(stdscr) - 1, getcurx(stdscr));
-                } else {
-                    move(10, getcurx(stdscr));
-                }
-                break;
-            case KEY_RIGHT:
-                if (getcurx(stdscr) < 20) {
-                    move(getcury(stdscr), getcurx(stdscr) + 2);
-                    if ((getcurx(stdscr) + 2) % 8 == 0 && getcurx(stdscr) > 0)
-                        move(getcury(stdscr), getcurx(stdscr) + 2);
-                } else {
-                    move(getcury(stdscr), 0);
-                }
-                break;
-            case KEY_DOWN:
-                if (getcury(stdscr) < 10) {
-                    move(getcury(stdscr) + 1, getcurx(stdscr));
-                    if ((getcury(stdscr) + 1) % 4 == 0 && getcury(stdscr) > 0)
-                        move(getcury(stdscr) + 1, getcurx(stdscr));
-                } else {
-                    move(0, getcurx(stdscr));
-                }
-                break;
-            case KEY_LEFT:
-                if (getcurx(stdscr) > 0) {
-                    move(getcury(stdscr), getcurx(stdscr) - 2);
-                    if ((getcurx(stdscr) + 2) % 8 == 0 && getcurx(stdscr) > 0)
-                        move(getcury(stdscr), getcurx(stdscr) - 2);
-                } else {
-                    move(getcury(stdscr), 20);
-                }
-                break;
-            case '\n':
-            case KEY_ENTER: 
-                if (mode == 'c') {
-                    curs_set(2);
-                    mode = 'e';
-                    status = 'u';
-                } else if (mode == 'e') {
-                    curs_set(1);
-                    mode = 'c';
-                    if (board.validate() && board.full())
-                        status = 'd';
-                }
-
-                drawStats(status, mode);
-                break;
-            case 'f':
-                if (mode != 'c')
-                    break;
-
-                if (!board.fix())
-                    break;
-
-                status = 'u';
-
-                drawBoard(board);
-                drawStats(status, mode);
-
-                break;
-            case 'g':
-                if (mode != 'c')
-                    break;
-
-                status = 'g';
-                drawStats(status, mode);
-
-                board.generate(seedsFile);
-
-                if (board.unique() == 1)
-                    status = 'u';
-                else
-                    status = 'E';
-
-                drawBoard(board);
-                drawStats(status, mode);
-
-                move(0, 0);
-
-                break;
-            case 's':
-                if (mode == 'c') {
-                    status = 's';
-                    drawStats(status, mode);
-
-                    board.solve();
-
-                    if (board.full() && board.validate())
-                        status = 'd';
-                    else
-                        status = 'f';
-                    drawStats(status, mode);
-                    drawBoard(board);
-                }
-                break;
-            case 'h':
-                if (mode == 'c') {
-                    if (status == 'd')
-                        break;
-
-                    int x = getcurx(stdscr), y = getcury(stdscr);
-
-                    attron(COLOR_PAIR(3));
-                    mvprintw(0, 50, "Hint: ");
-                    attroff(COLOR_PAIR(3));
-
-                    if (board.unique() < 1) {
-                        attron(COLOR_PAIR(1));
-                        mvprintw(0, 56, "NOT SOLVABLE");
-                        attroff(COLOR_PAIR(1));
-
-                        move(y, x);
-                        break;
-                    }
-
-                    Board solution = board;
-                    solution.fix();
-                    solution.solve();
-
-                    std::random_device dev;
-                    std::mt19937 rng(dev());
-                    std::uniform_int_distribution<> dist(0, 80);
-
-                    int index = dist(rng);
-                    while (board[index / 9][index % 9] != 0) {
-                        if (index < 80)
-                            ++index;
-                        else
-                            index = 0;
-                    }
-
-                    board.play(index / 9, index % 9, solution[index / 9][index % 9]);
-                    drawBoard(board);
-
-                    attron(COLOR_PAIR(2));
-                    mvprintw((index / 9) + ((index / 9) / 3), ((index % 9) + ((index % 9) / 3)) * 2, "%i", board[index / 9][index % 9]);
-                    attroff(COLOR_PAIR(2));
-
-                    attron(COLOR_PAIR(2));
-                    mvprintw(0, 56, "SOLVABLE");
-                    attroff(COLOR_PAIR(2));
-
-                    if (board.validate() && board.full()) {
-                        status = 'd';
-                        drawStats(status, mode);
-                    }
-
-                    move(y, x);
-                }
-                break;
-            default: // Handle numbers
-                if ((ch == 127 || ch == KEY_BACKSPACE || ch == 8 || ('0' <= ch && '9' >= ch)) && getcurx(stdscr) % 2 == 0 && mode == 'e' && getcurx(stdscr) <= 20 && getcury(stdscr) <= 10) {
-                    int x = getcurx(stdscr), y = getcury(stdscr);
-
-                    board.play(y - (y / 4), (x / 2) - ((x / 2) / 4), '0' <= ch && '9' >= ch ? ch - '0' : 0);
-
-                    if (ch <= '9' && ch > '0' && board.canMove(y - (y / 4), (x / 2) - ((x / 2) / 4), ch - '0')) {
-                        do {
-                            if (((x + 2) % 8 == 6) && (y + 1) % 4 == 3) {
-                                if (x == 20) {
-                                    if (y < 10)
-                                        y += 2;
-                                    else
-                                        y = 0;
-                                    x = 0;
-                                } else {
-                                    x += 4;
-                                    y -= 2;
-                                }
-                            } else if ((x + 2) % 8 < 6) {
-                                x += 2;
-                            } else {
-                                x -= 4;
-                                ++y;
-                            }
-                        } while ((board.full() || board[y - (y / 4)][(x / 2) - ((x / 2) / 4)] != 0) && board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)));
-                    }
-
-                    drawBoard(board);
-
-                    if (board.validate() && board.full())
-                        status = 'd';
-                    drawStats(status, mode);
-
-                    move(y, x);
-                }
-                break;
-        }
-    }
-
-    endwin();
+    Game game(seedsFile);
+    game.loop();
+    
     return 0;
 }
