@@ -8,10 +8,8 @@
 
 #ifdef __APPLE__
     #define _XOPEN_SOURCE_EXTENDED 1
-    #include <ncurses.h>
-#else
-    #include <ncursesw/ncurses.h>
 #endif
+#include <ncurses.h>
 
 enum Colors { Bad = 1, Good = 2, Fixed = 3 };
 enum Status { UserInput, UserSolve, Generate, Solve, Solved, Error };
