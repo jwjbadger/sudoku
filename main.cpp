@@ -6,62 +6,77 @@
 #include <string>
 #include <locale.h>
 
+// Apple uses an older version of NCurses, so you must #define a macro to be 1 for support
 #ifdef __APPLE__
     #define _XOPEN_SOURCE_EXTENDED 1
 #endif
 #include <ncurses.h>
 
+// Makes colors and status more clear to reference (e.g. Colors::Bad is the same as 1)
 enum Colors { Bad = 1, Good = 2, Fixed = 3 };
 enum Status { UserInput, UserSolve, Generate, Solve, Solved, Error };
 
+// Define the Board and related methods for solving, testing unique, etc.
 class Board {
     private:
-        int _board[9][9] = {};
-        int *_fixed = new int[0];
-        int _numFixed = 0;
+        int _board[9][9] = {}; // The board itself represented as a 2d Array
+        int *_fixed = new int[0]; // A list of indexes to the elements of the array which are fixed and cannot be edited
+        int _numFixed = 0; // The number of fixed elements (the sized of _fixed)
     
     public:
+        // Default: do nothing
         Board() {}
-
+        
+        // Copy constructor: necessary to prevent double free of _fixed
         Board(const Board &copy) : _numFixed(copy._numFixed) {
             for (int i = 0; i < 9; ++i)
                 for (int j = 0; j < 9; ++j)
                     _board[i][j] = copy[i][j];
-            
-            _fixed = new int[_numFixed];
+        
+            // create a new _fixed and copy the elements of the original into it
+            _fixed = new int[_numFixed]; 
             for (int i = 0; i < _numFixed; ++i)
                 _fixed[i] = copy._fixed[i]; 
         }
 
+        // Construct a board from a string (deserialize it)
         Board(std::string serialized) {
-            for (int i = 0; i < 81; ++i) {
+            for (int i = 0; i < 81; ++i)
                 _board[i / 9][i % 9] = serialized[i] - '0';
-            }
         }
 
+        // Delete _fixed so we don't leak memory
         ~Board() {
             delete[] _fixed;
         }
 
+        // Overload operator[] to allow for easy indexing of the array (returns a constant; you must modify the board via `play()` not using direct modification)
         const int* operator[](const unsigned int r) const {
             return _board[r];
         }
 
+        // Taking in a row and a column, returns a boolean describing if the element at that position is fixed
         bool fixed(int r, int c) {
             if (std::find(_fixed, _fixed + _numFixed, r * 9 + c) != _fixed + _numFixed)
                 return true;
+
             return false;
         }
 
+        // Fix the board as it is (prevent editing of non-zero elements in the future)
         bool fix() {
+            // Don't fix a board if it's not valid or has no solution
             if (!validate() || unique() < 1)
                 return false;
 
+            // Get rid of old _fixed
             delete[] _fixed;
 
+            // Set the number of fixed to the number of non-zero elements and create a new array to store this
             _numFixed = count();
             _fixed = new int[_numFixed];
 
+            // loop through and add all of the elements to be fixed to _fixed
             int index = 0;
             for (int i = 0; i < 9; ++i) {
                 for (int j = 0; j < 9; ++j) {
@@ -75,6 +90,7 @@ class Board {
             return true;
         }
 
+        // Play a move if it's not overlapping a fixed piece 
         bool play(int r, int c, int num) {
             if (fixed(r, c))
                 return false;
@@ -84,10 +100,12 @@ class Board {
             return canMove(r, c, num);
         }
 
+        // retun true if the number of non-zero numbers is 81 (a full board)
         bool full() {
             return count() == 81;
         }
 
+        // Count the number of non-zero numbers in the board
         int count() {
             int count = 0;
 
@@ -99,13 +117,14 @@ class Board {
             return count;
         }
 
+        // Rotate a board 0, 1, 2, or 3 times
         void rotate(int times) {
             if (times == 0)
                 return;
 
-            Board old = *this;
+            Board old = *this; // Calls copy constructor
 
-            switch (times) {
+            switch (times) { // Using equations for transformations: 90 deg: (x, y) -> (y, -x); 180 deg: (x, y) -> (-x, -y); 270 deg: (x, y) -> (-y, x)
                 case 1:
                     for (int i = 0; i < 9; ++i)
                         for (int j = 0; j < 9; ++j)
@@ -124,6 +143,7 @@ class Board {
             }
         }
 
+        // Reflect across axis 0, 1, 2, or 3 (no reflection, y-axis, x-axis, both
         void reflect(int axis) {
             if (axis == 0)
                 return;
@@ -149,6 +169,7 @@ class Board {
             }
         }
 
+        // Validate a board by checking if any numbers repeat per row, column, and group
         bool validate() {
             for (int i = 0; i < 9; ++i) {
                 int row[9]; 
@@ -176,16 +197,17 @@ class Board {
             return true;
         }
 
+        // Check more efficiently if moving to a specific row and column is valid
         bool canMove(int r, int c, int num) {
-            if (num == 0)
+            if (num == 0) // Can always change to 0
                 return true;
 
             int row[9]; 
             int col[9];
             int group[9];
 
-            int oldVal = _board[r][c];
-            _board[r][c] = 0;
+            int oldVal = _board[r][c]; // To reset the board afterward
+            _board[r][c] = 0; // We don't want any current values at the location messing up the calculations
 
             std::copy(std::begin(_board[r]), std::end(_board[r]), std::begin(row));
 
@@ -195,6 +217,7 @@ class Board {
                 group[j] = _board[(g / 3) * 3 + j / 3][(g % 3) * 3 + j % 3];
             }
 
+            // Check now if anything in the row, column, or group is equal to the inputted number
             for (int j = 0; j < 9; ++j) {
                 if ((row[j] == num) ||
                     (col[j] == num) ||
@@ -208,6 +231,7 @@ class Board {
             return true;
         }
 
+        // Recursively solve via smart backtracking using a row and column to solve from
         bool solve(int row, int col) {
             if (col > 8) {
                 if (row == 8)
@@ -234,6 +258,7 @@ class Board {
             return false;
         }
 
+        // Wrap the underlying solve function to only solve valid boards
         bool solve() {
             for (int i = 0; i < 9; ++i)
                 for (int j = 0; j < 9; ++j)
@@ -248,6 +273,7 @@ class Board {
             return solve(0, 0);
         }
 
+        // Returns the number of solutions by recursively finding them; returns 0, 1, or 2 (2 simply means there are at least 2 solutions)
         int unique(int row = 0, int col = 0, int num = 0) {
             if (num > 1)
                 return num;
@@ -279,80 +305,92 @@ class Board {
             return num;
         }
 
+        // Generate a new board using the seeds file
         void generate(std::string file = "seeds.dat") {
-            std::ifstream binary_file(file, std::ios::in | std::ios::binary);
+            std::ifstream binary_file(file, std::ios::in | std::ios::binary); // Open the file
 
+            // To generate better random numbers
             std::random_device dev;
             std::mt19937 rng(dev());
 
+            // Run through and for each line make the result equal to the current line if a random number from 0 to the number of lines is less than one (ensures a result always gets picked)
             std::string line, result;
             for(std::size_t i = 0; std::getline(binary_file, line); ++i) {
                 std::uniform_int_distribution<> dist(0, i);
                 if (dist(rng) < 1)
                     result = line;
             }
-            binary_file.close();
+            binary_file.close(); // Close file
 
+            // Shuffle around which number is which
             int options[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-            std::shuffle(std::begin(options) + 1, std::end(options), rng);
+            std::shuffle(std::begin(options) + 1, std::end(options), rng); // don't shuffle 0
             for (int i = 0; i < 81; ++i)
                 _board[i / 9][i % 9] = options[result[i] - '0'];
 
+            // Rotate and reflect the board
             std::uniform_int_distribution<> dist(0, 3);
             rotate(dist(rng));
             reflect(dist(rng));
 
+            // Fix it to complete the function
             fix();
         }
 
+        // Static method to generate a seed for a puzzle because generation times are so long (generates a board) 
         static Board generateSeed() {     
             Board board;
 
+            // Create a list of pointers to individual elements of the board
             int *shuffledBoard[81] = {};
-
             for (int i = 0; i < 9; ++i)
                 for (int j = 0; j < 9; ++j)
                     shuffledBoard[i * 9 + j] = &board._board[i][j]; 
 
+            // Randomly shuffle that list of pointers
             std::random_device rd;
             std::mt19937 g(rd());
             std::shuffle(std::begin(shuffledBoard), std::end(shuffledBoard), g);
 
+            // Create a list of options to move so that they can be shuffled to make the algorithm somewhat random
             int options[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
+            // Iterate through all cells
             for (int i = 0; i < 81; ++i) {
-                std::random_device rd;
-                std::mt19937 g(rd());
+                // Shuffle the list of options
                 std::shuffle(std::begin(options), std::end(options), g);
 
+                // Iterate through all the options for the selected element
                 for (int k = 0; k < 9; ++k) {
-                   if (board.canMove((shuffledBoard[i] - &(board._board[0][0])) / 9, (shuffledBoard[i] - &(board._board[0][0])) % 9, options[k])) {
+                    // If you can move to the current cell with the kth option to move, do so 
+                    if (board.canMove((shuffledBoard[i] - &(board._board[0][0])) / 9, (shuffledBoard[i] - &(board._board[0][0])) % 9, options[k])) {
                         *(shuffledBoard[i]) = options[k];
                         
+                        // Get the number of solutions remaining
                         int numSolutions = board.unique();
                         
-                        if (numSolutions == 1) {
+                        if (numSolutions == 1) { // We are finished if there is 1 and only 1 solution
                             board.fix();
                             return board;
-                        } else if (numSolutions > 1) {
+                        } else if (numSolutions > 1) { // If there is more than one, let's keep going
                             break;
                         } else {
-                            *(shuffledBoard[i]) = 0;
+                            *(shuffledBoard[i]) = 0; // If there are less than one, we messed up
                         }
                     }
                 }
             }
 
+            // Fix the board and return (this code shouldn't really ever be ran because it implies we filled the entire board or something went wrong)
             board.fix();
             return board; 
         }
 
+        // Serialize the board using handy operator<< notation; simply put every element one after another with no spacing or formatting
         friend std::ostream& operator<<(std::ostream& os, const Board& board) {
-            for (int i = 0; i < 9; ++i) {
-                for (int j = 0; j < 9; ++j) {
+            for (int i = 0; i < 9; ++i)
+                for (int j = 0; j < 9; ++j)
                     os << board._board[i][j];
-                }
-            }
 
             return os;
         }
@@ -608,11 +646,11 @@ class Game {
                                     index = 0;
                             }
 
-                            _board.play(index / 9, index % 9, solution[index / 9][index % 9]);
-
                             attron(COLOR_PAIR(Colors::Good));
                             mvprintw(0, 56, "SOLVABLE");
                             attroff(COLOR_PAIR(Colors::Good));
+
+                            _board.play(index / 9, index % 9, solution[index / 9][index % 9]);
 
                             if (_board.validate() && _board.full())
                                 _status = Status::Solved;
@@ -622,7 +660,7 @@ class Game {
                             mvprintw((index / 9) + ((index / 9) / 3), ((index % 9) + ((index % 9) / 3)) * 2, "%i", _board[index / 9][index % 9]);
                             attroff(COLOR_PAIR(Colors::Good));
 
-                            move(y, x);
+                            move(getcury(stdscr), getcurx(stdscr) - 1);
                         }
                         break;
                     default: // Handle numbers
