@@ -234,17 +234,22 @@ class Board {
         // Recursively solve via smart backtracking using a row and column to solve from
         bool solve(int row, int col) {
             if (col > 8) {
+                // Return that we found a solution if we are out of bounds on the bottom right corner of the board
                 if (row == 8)
                     return true;
 
+                // If out of bounds by going too far to the right, wrap around to the next row
                 ++row;
                 col = 0;
             }
-
+            
+            // If there's already a number, jump to the next cell
             if (_board[row][col] > 0)
                 return solve(row, col + 1);
 
+            // Iterate through all options for numbers
             for (int i = 1; i < 10; ++i) {
+                // If a number works, set it, recurse on the algorithm, and reset it if a solution isn't found
                 if (canMove(row, col, i)) {
                     _board[row][col] = i;
 
@@ -255,16 +260,18 @@ class Board {
                 }   
             }
 
-            return false;
+            return false; // no solution
         }
 
         // Wrap the underlying solve function to only solve valid boards
         bool solve() {
+            // Reset anything that isn't fixed
             for (int i = 0; i < 9; ++i)
                 for (int j = 0; j < 9; ++j)
                     if (_board[i][j] > 0 && !fixed(i, j))
                         _board[i][j] = 0;
 
+            // Don't solve an impossible board
             if (!validate())
                 return false;
             if (full())
@@ -275,21 +282,23 @@ class Board {
 
         // Returns the number of solutions by recursively finding them; returns 0, 1, or 2 (2 simply means there are at least 2 solutions)
         int unique(int row = 0, int col = 0, int num = 0) {
-            if (num > 1)
-                return num;
-
             if (col > 8) {
+                // If out of bounds on the bottom right corner, we found one more solution
                 if (row == 8)
                     return num + 1;
 
+                // If out of bounds on the right, go to the next row
                 ++row;
                 col = 0;
             }
 
+            // If we find a fixed element, skip it
             if (_board[row][col] > 0)
                 return unique(row, col + 1, num);
 
+            // Iterate through all options
             for (int i = 1; i < 10; ++i) {
+                // If we find a valid move, go there and then check for unique solutions
                 if (canMove(row, col, i)) {
                     _board[row][col] = i;
 
@@ -302,7 +311,7 @@ class Board {
                 }   
             }
 
-            return num;
+            return num; // Return however many we found
         }
 
         // Generate a new board using the seeds file
@@ -396,49 +405,63 @@ class Board {
         }
 };
 
+// Class which represents the user interface with the board
 class Game {
     private:
-        Board _board;
-        std::string _seeds = "seeds.dat";
-        MEVENT _event;
-        int _status = Status::UserInput;
+        std::string _seeds = "seeds.dat"; // The file that the seeds are stored in
+        Board _board; // The board itself
+        int _status = Status::UserInput; // The current status of the game
+
+        MEVENT _event; // Mouse Event handler
 
     public:
+        // Default constructor that sets the locale, initializes the terminal using ncurses, allows mouse events, creates the colors, and initializes the display
         Game(std::string seeds = "seeds.dat") : _seeds(seeds) {
+            // Necessary for support of wide characters (MUST BE BEFORE `initscr()`)
             setlocale(LC_ALL, "");
             setlocale(LC_NUMERIC,"C");
 
+            // Initialize the screen
             initscr();
-            keypad(stdscr, TRUE);
-            noecho();
-            cbreak();
+            keypad(stdscr, TRUE); // Take input from special keys
+            noecho(); // Don't display input on screen by default (e.g. if you type 'a', nothing shows up)
+            cbreak(); // Don't buffer lines; if the user types something, make it immediately available to the program
 
+            // Capture mouse events
             mousemask(ALL_MOUSE_EVENTS, NULL);
 
+            // Initialize colors
             start_color();
             init_pair(Colors::Bad, COLOR_RED, COLOR_BLACK);
             init_pair(Colors::Good, COLOR_GREEN, COLOR_BLACK);
             init_pair(Colors::Fixed, COLOR_BLUE, COLOR_BLACK);
 
+            // Initialize display
             initDisplay();
             updateTUI();
 
+            // Reset cursor
             move(0, 0);
         }
 
+        // Safely exit ncurses
         ~Game() {
             endwin();
         }
 
+        // Move the cursor to a specific row and column of the sudoku puzzle
         void setCursor(int r, int c) {
             move(r + (r / 3), c * 2 + (c / 3) * 2);
         }
 
+        // Update the information provided to the user
         void updateTUI() {
-            int x = getcurx(stdscr), y = getcury(stdscr);
+            int x = getcurx(stdscr), y = getcury(stdscr); // to reset the cursor later
 
+            // Clear any currently available hints
             mvprintw(0, 50, "                  ");
 
+            // Change status
             switch (_status) {
                 case Status::UserInput:
                     mvprintw(0, 34, "%s", "User Input        ");
@@ -468,29 +491,33 @@ class Game {
                     attroff(COLOR_PAIR(Colors::Bad));
             }
 
+            // Print the board
             for (int i = 0; i < 9; ++i) {
                 for (int j = 0; j < 9; ++j) {
                     setCursor(i, j);
                     
-                    if (_board.fixed(i, j)) {
+                    if (_board.fixed(i, j)) { // Fixed number
                         attron(COLOR_PAIR(Colors::Fixed));
                         printw("%i", _board[i][j]);
                         attroff(COLOR_PAIR(Colors::Fixed));
-                    } else if (!_board.canMove(i, j, _board[i][j])) {
+                    } else if (!_board.canMove(i, j, _board[i][j])) { // Invalid number
                         attron(COLOR_PAIR(Colors::Bad));
                         printw("%i", _board[i][j]);
                         attroff(COLOR_PAIR(Colors::Bad));
-                    } else {
+                    } else { // Normal number
                         printw("%i", _board[i][j]);
                     }
                 }
             }
 
+            // Reset cursor + refresh
             move(y, x);
             refresh();
         }
 
+        // Initialize the display including the keybinds, board layout, etc.
         void initDisplay() {
+            // Status label and keybind labels
             attron(COLOR_PAIR(Colors::Fixed));
             mvprintw(0, 26, "Status: ");
             mvprintw(2, 26, "Keybinds:");
@@ -502,6 +529,7 @@ class Game {
             mvprintw(8, 30, "Hint: ");
             attroff(COLOR_PAIR(Colors::Fixed));
 
+            // Actual keybinds themselves
             mvprintw(3, 40, "Arrow Keys");
             mvprintw(4, 40, "G");
             mvprintw(5, 52, "F");
@@ -509,6 +537,7 @@ class Game {
             mvprintw(7, 37, "Backspace | [0-9]");
             mvprintw(8, 36, "H");
 
+            // Grid
             for (int i = 1; i < 12; ++i) {
                 for (int j = 1; j < 12; ++j) {
                     if (i % 4 == 0) {
@@ -523,24 +552,26 @@ class Game {
             }
         }
 
+        // Base game loop that gets input from the user and performs a task based on it
         void loop() {
-            for (int ch = getch(); ch != 'q'; ch = getch()) {
+            for (int ch = getch(); ch != 'q'; ch = getch()) { // Until you type 'q', get character
                 switch (ch) {
                     case KEY_MOUSE:
                         if (getmouse(&_event) != OK)
                             break;
 
+                        // Listen for left mouse button
                         if (!(_event.bstate & BUTTON1_CLICKED))
                             break;
 
-                        {
+                        { // Create a new scope so compiler doesn't complain about skipping variable initialization
                             int x = _event.x, y = _event.y;
-                            if ((y <= 10 && x <= 20) && (y + 1) % 4 != 0 && (x + 2) % 8 != 0 && x % 2 == 0)
+                            if ((y <= 10 && x <= 20) && (y + 1) % 4 != 0 && (x + 2) % 8 != 0 && x % 2 == 0) // If within bounds, move
                                 move(y, x);
                         }
 
                         break;
-                    case KEY_UP:
+                    case KEY_UP: // Move up
                         if (getcury(stdscr) > 0) {
                             move(getcury(stdscr) - 1, getcurx(stdscr));
                             if ((getcury(stdscr) + 1) % 4 == 0)
@@ -549,7 +580,7 @@ class Game {
                             move(10, getcurx(stdscr));
                         }
                         break;
-                    case KEY_RIGHT:
+                    case KEY_RIGHT: // Move right
                         if (getcurx(stdscr) < 20) {
                             move(getcury(stdscr), getcurx(stdscr) + 2);
                             if ((getcurx(stdscr) + 2) % 8 == 0)
@@ -558,7 +589,7 @@ class Game {
                             move(getcury(stdscr), 0);
                         }
                         break;
-                    case KEY_DOWN:
+                    case KEY_DOWN: // Move down
                         if (getcury(stdscr) < 10) {
                             move(getcury(stdscr) + 1, getcurx(stdscr));
                             if ((getcury(stdscr) + 1) % 4 == 0)
@@ -567,7 +598,7 @@ class Game {
                             move(0, getcurx(stdscr));
                         }
                         break;
-                    case KEY_LEFT:
+                    case KEY_LEFT: // Move left
                         if (getcurx(stdscr) > 0) {
                             move(getcury(stdscr), getcurx(stdscr) - 2);
                             if ((getcurx(stdscr) + 2) % 8 == 0)
@@ -576,19 +607,21 @@ class Game {
                             move(getcury(stdscr), 20);
                         }
                         break;
-                    case 'f':
+                    case 'f': // Fix board in place
                         if (!_board.fix())
                             break;
 
+                        // Set status + update
                         _status = Status::UserInput;
                         updateTUI();
                         break;
-                    case 'g':
+                    case 'g': // Generate board
                         _status = Status::Generate;
                         updateTUI();
 
                         _board.generate(_seeds);
 
+                        // if not exactly one unique solution, show an error
                         if (_board.unique() == 1)
                             _status = Status::UserInput;
                         else
@@ -597,12 +630,13 @@ class Game {
                         updateTUI();
                         move(0, 0);
                         break;
-                    case 's':
+                    case 's': // solve
                         _status = Status::Solve;
                         updateTUI();
 
                         _board.solve();
 
+                        // If board isn't solved, show an error
                         if (_board.full() && _board.validate())
                             _status = Status::Solved;
                         else
@@ -610,17 +644,19 @@ class Game {
                         updateTUI();
 
                         break;
-                    case 'h':
+                    case 'h': // hint
                         if (_status == Status::Solved)
                             break;
 
-                        {
+                        { // Same thing; create new scope for variable initialization
                             int x = getcurx(stdscr), y = getcury(stdscr);
 
+                            // Setup hint
                             attron(COLOR_PAIR(Colors::Fixed));
                             mvprintw(0, 50, "Hint: ");
                             attroff(COLOR_PAIR(Colors::Fixed));
 
+                            // If there's less than one unique solution, say the board is unsolvable
                             if (_board.unique() < 1) {
                                 attron(COLOR_PAIR(Colors::Bad));
                                 mvprintw(0, 56, "NOT SOLVABLE");
@@ -630,14 +666,17 @@ class Game {
                                 break;
                             }
 
+                            // Find the solution
                             Board solution = _board;
                             solution.fix();
                             solution.solve();
 
+                            // Get a random index of the board
                             std::random_device dev;
                             std::mt19937 rng(dev());
                             std::uniform_int_distribution<> dist(0, 80);
 
+                            // Get the closest empty blank near the selected index
                             int index = dist(rng);
                             while (_board[index / 9][index % 9] != 0) {
                                 if (index < 80)
@@ -646,55 +685,72 @@ class Game {
                                     index = 0;
                             }
 
+                            // Board is solvable
                             attron(COLOR_PAIR(Colors::Good));
                             mvprintw(0, 56, "SOLVABLE");
                             attroff(COLOR_PAIR(Colors::Good));
 
+                            // Play the index
                             _board.play(index / 9, index % 9, solution[index / 9][index % 9]);
 
+                            // If this happens to be the last number, update the board to be solved; otherwise update
                             if (_board.validate() && _board.full())
                                 _status = Status::Solved;
                             updateTUI();
 
+                            // Print the hint in green
                             attron(COLOR_PAIR(Colors::Good));
                             mvprintw((index / 9) + ((index / 9) / 3), ((index % 9) + ((index % 9) / 3)) * 2, "%i", _board[index / 9][index % 9]);
                             attroff(COLOR_PAIR(Colors::Good));
 
+                            // Move to the hint
                             move(getcury(stdscr), getcurx(stdscr) - 1);
                         }
                         break;
                     default: // Handle numbers
-                        if ((ch == 127 || ch == KEY_BACKSPACE || ch == 8 || ('0' <= ch && '9' >= ch)) && getcurx(stdscr) % 2 == 0 && getcurx(stdscr) <= 20 && getcury(stdscr) <= 10) {
-                            int x = getcurx(stdscr), y = getcury(stdscr);
+                        // If the input is a number or backspace, play the appropriate number
+                        if (ch == 127 || ch == KEY_BACKSPACE || ch == 8 || ('0' <= ch && '9' >= ch)) {
+                            int x = getcurx(stdscr), y = getcury(stdscr); // for resetting cursor
 
+                            // Play the position
                             _board.play(y - (y / 4), (x / 2) - ((x / 2) / 4), '0' <= ch && '9' >= ch ? ch - '0' : 0);
 
+                            // Move the cursor to the next available spot in the same grid
                             if (ch <= '9' && ch > '0' && _board.canMove(y - (y / 4), (x / 2) - ((x / 2) / 4), ch - '0')) {
-                                do {
+                                // Move the x and y position to the first element in the grid square
+                                x = (x / 4) * 4;
+                                y = (y / 4) * 4;
+
+                                // While the position isn't valid, progress it
+                                while (!_board.full() && (_board[y - (y / 4)][(x / 2) - ((x / 2) / 4)] != 0 || _board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)))) {
+                                    // At the end of a grid
                                     if (((x + 2) % 8 == 6) && (y + 1) % 4 == 3) {
+                                        // If at the end of a row and the bottom of a grid square, move to the next row
                                         if (x == 20) {
                                             if (y < 10)
                                                 y += 2;
-                                            else
+                                            else // Special case at the very end -> move to the first element
                                                 y = 0;
                                             x = 0;
-                                        } else {
+                                        } else { // otherwise, move to the next grid to the right
                                             x += 4;
                                             y -= 2;
                                         }
-                                    } else if ((x + 2) % 8 < 6) {
+                                    } else if ((x + 2) % 8 < 6) { // move forward within the grid
                                         x += 2;
-                                    } else {
+                                    } else { // move to the next row within the grid
                                         x -= 4;
                                         ++y;
                                     }
-                                } while ((_board.full() || _board[y - (y / 4)][(x / 2) - ((x / 2) / 4)] != 0) && _board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)));
+                                }
                             }
 
+                            // If this solves the board, update the TUI
                             if (_board.validate() && _board.full())
                                 _status = Status::Solved;
                             updateTUI();
 
+                            // Return to the original position
                             move(y, x);
                         }
                         break;
@@ -703,50 +759,70 @@ class Game {
         }
 };
 
+// Program insertion point
 int main(int argc, char **argv) {
-    std::string seedsFile = "seeds.dat";
+    std::string seedsFile = "seeds.dat"; // default seeds file
 
+    // Get any command-line arguments if there are any
     if (argc > 1) {
+        // Return help menu if request (-h)
         if (std::find(argv, argv + argc, std::string("-h")) != argv + argc) {
             std::cout << "usage: sudoku [options]" << std::endl;
             std::cout << "options:" << std::endl;
-            std::cout << "  sudoku -g [num]         | generates [num] seeds for sudoku puzzles (100 by default) and exports to seeds.dat" << std::endl;
-            std::cout << "  sudoku -t [file]        | tests [file] for seeds with unique solutions" << std::endl;
+            std::cout << "  sudoku -h               | prints this screen" << std::endl;
             std::cout << "  sudoku -s [file]        | sets the source for seeds to be [file] (seeds.dat by default)" << std::endl;
+            std::cout << "  sudoku -g [num]         | generates [num] seeds for sudoku puzzles (100 by default) and exports to seeds.dat" << std::endl;
+            std::cout << "  sudoku -t               | tests the seeds file for seeds with unique solutions" << std::endl;
             return 0;
         }
 
+        // Set the seeds file if requested (-s)
+        char **s = std::find(argv, argv + argc, std::string("-s"));
+        if (s != argv + argc)
+            seedsFile = *(s + 1);
+
+        // Generate seeds for sudoku puzzles if requested (-g)
         char **g = std::find(argv, argv + argc, std::string("-g"));
         if (g != argv + argc) {
+            // Initialize screen
             setlocale(LC_ALL, "");
-
             initscr();
             noecho();
             cbreak();
 
+            // Get the number of seeds to make; default to 100
             int num = (g + 1) == argv + argc ? 100 : std::stoi(*(g + 1));
 
+            // Status
             mvaddstr(0, 0, "Generating seeds for sudoku puzzles:");
             mvprintw(1, 0, "[                    ] (0/%i)", num);
             refresh();
 
-            std::ofstream binary_file("seeds.dat", std::ios::out | std::ios::binary | std::ios::app);
+            // Open file for output
+            std::ofstream binary_file(seedsFile, std::ios::out | std::ios::binary | std::ios::app);
+
+            // Generate the number of seeds requested
             for (int i = 0; i < num; ++i) {
+                // Generate a board
                 Board board = Board::generateSeed();
 
+                // Add the serialized board to the file
                 binary_file << board << std::endl;
 
+                // Update the status on completing the number of seeds
                 for (int j = 0; j < ((20 * (i + 1)) / num); ++j)
                     mvaddwstr(1, j + 1, L"▓");
                 mvprintw(1, 23, "(%i/%i)", i + 1, num);
                 refresh();
             }
-            binary_file.close();
 
+            // Close the file and exit
+            binary_file.close();
             endwin();
             return 0;
         }
 
+        // Test the generated seeds if requested (-t)
         char **t = std::find(argv, argv + argc, std::string("-t"));
         if (t != argv + argc) {
             std::ifstream binary_file(*(t + 1), std::ios::in | std::ios::binary);
@@ -754,6 +830,7 @@ int main(int argc, char **argv) {
             std::string line;
             while (std::getline(binary_file, line)) {
                 Board board(line);
+                // If there isn't one unique solution to the puzzle, fail the test
                 if (board.unique() != 1) {
                     binary_file.close();
                     std::cout << "FAILED" << std::endl;
@@ -761,17 +838,14 @@ int main(int argc, char **argv) {
                 }
             }
 
+            // If nothing fails, pass the test
             binary_file.close();
             std::cout << "PASSED" << std::endl;
             return 0;
         }
-
-        char **s = std::find(argv, argv + argc, std::string("-s"));
-        if (s != argv + argc) {
-            seedsFile = *(s + 1);
-        }
     }
 
+    // Initialize the game and loop
     Game game(seedsFile);
     game.loop();
     
