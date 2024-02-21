@@ -7,5 +7,5 @@
 -   [x] Keybinds on side
 -   [x] Hint button of some kind
 -   [x] Fix compiling wide chars
--   [ ] Reformat code
--   [ ] Comment code
+-   [x] Reformat code
+-   [x] Comment code
