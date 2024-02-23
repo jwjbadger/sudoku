@@ -20,7 +20,7 @@ enum Status { UserInput, UserSolve, Generate, Solve, Solved, Error };
 class Board {
     private:
         int _board[9][9] = {}; // The board itself represented as a 2d Array
-        int *_fixed = new int[0]; // A list of indexes to the elements of the array which are fixed and cannot be edited
+        int *_fixed = new int[0]; // A list of indexes to the uneditable elements of the array
         int _numFixed = 0; // The number of fixed elements (the sized of _fixed)
     
     public:
@@ -39,6 +39,22 @@ class Board {
                 _fixed[i] = copy._fixed[i]; 
         }
 
+        // Assignment operator (similar to copy constructor except assigns an existing Board)
+        Board& operator=(const Board& copy) {
+            _numFixed = copy._numFixed;
+            for (int i = 0; i < 9; ++i)
+                for (int j = 0; j < 9; ++j)
+                    _board[i][j] = copy[i][j];
+
+            // create a new _fixed and copy the elements of the original into it
+            delete[] _fixed;
+            _fixed = new int[_numFixed];
+            for (int i = 0; i < _numFixed; ++i)
+                _fixed[i] = copy._fixed[i];
+
+            return *this;
+        }
+
         // Construct a board from a string (deserialize it)
         Board(std::string serialized) {
             for (int i = 0; i < 81; ++i)
@@ -50,7 +66,8 @@ class Board {
             delete[] _fixed;
         }
 
-        // Overload operator[] to allow for easy indexing of the array (returns a constant; you must modify the board via `play()` not using direct modification)
+        // Overload operator[] to allow for easy indexing of the array 
+        // Returns a constant: you must modify the board via `play()` not using direct modification)
         const int* operator[](const unsigned int r) const {
             return _board[r];
         }
@@ -72,7 +89,7 @@ class Board {
             // Get rid of old _fixed
             delete[] _fixed;
 
-            // Set the number of fixed to the number of non-zero elements and create a new array to store this
+            // Set _numFixed to the number of non-zero elements & create a new array to store this
             _numFixed = count();
             _fixed = new int[_numFixed];
 
@@ -124,18 +141,18 @@ class Board {
 
             Board old = *this; // Calls copy constructor
 
-            switch (times) { // Using equations for transformations: 90 deg: (x, y) -> (y, -x); 180 deg: (x, y) -> (-x, -y); 270 deg: (x, y) -> (-y, x)
-                case 1:
+            switch (times) {
+                case 1: // 90 deg: (x, y) -> (y, -x)
                     for (int i = 0; i < 9; ++i)
                         for (int j = 0; j < 9; ++j)
                             _board[i][j] = old[j][8 - i];
                     break;
-                case 2:
+                case 2: // 180 deg: (x, y) -> (-x, -y)
                     for (int i = 0; i < 9; ++i)
                         for (int j = 0; j < 9; ++j)
                             _board[i][j] = old[8 - i][8 - j];
                     break;
-                case 3:
+                case 3: // 270 deg: (x, y) -> (-y, x)
                     for (int i = 0; i < 9; ++i)
                         for (int j = 0; j < 9; ++j)
                             _board[i][j] = old[8 - j][i];
@@ -143,7 +160,7 @@ class Board {
             }
         }
 
-        // Reflect across axis 0, 1, 2, or 3 (no reflection, y-axis, x-axis, both
+        // Reflect across axis 0, 1, 2, or 3 (no reflection, y-axis, x-axis, both)
         void reflect(int axis) {
             if (axis == 0)
                 return;
@@ -207,7 +224,7 @@ class Board {
             int group[9];
 
             int oldVal = _board[r][c]; // To reset the board afterward
-            _board[r][c] = 0; // We don't want any current values at the location messing up the calculations
+            _board[r][c] = 0; // Clear current value bc it will be overridden
 
             std::copy(std::begin(_board[r]), std::end(_board[r]), std::begin(row));
 
@@ -217,7 +234,7 @@ class Board {
                 group[j] = _board[(g / 3) * 3 + j / 3][(g % 3) * 3 + j % 3];
             }
 
-            // Check now if anything in the row, column, or group is equal to the inputted number
+            // Check if anything in the row, col, or group is equal to the given number
             for (int j = 0; j < 9; ++j) {
                 if ((row[j] == num) ||
                     (col[j] == num) ||
@@ -234,7 +251,7 @@ class Board {
         // Recursively solve via smart backtracking using a row and column to solve from
         bool solve(int row, int col) {
             if (col > 8) {
-                // Return that we found a solution if we are out of bounds on the bottom right corner of the board
+                // Return a solution if we are on the bottom right corner of the board
                 if (row == 8)
                     return true;
 
@@ -249,7 +266,7 @@ class Board {
 
             // Iterate through all options for numbers
             for (int i = 1; i < 10; ++i) {
-                // If a number works, set it, recurse on the algorithm, and reset it if a solution isn't found
+                // If a number works, set it, recurse `solve()`, and reset if no solution
                 if (canMove(row, col, i)) {
                     _board[row][col] = i;
 
@@ -280,7 +297,8 @@ class Board {
             return solve(0, 0);
         }
 
-        // Returns the number of solutions by recursively finding them; returns 0, 1, or 2 (2 simply means there are at least 2 solutions)
+        // Returns the number of solutions by recursively finding them
+        // Returns 0, 1, or 2 (2 simply means there are at least 2 solutions)
         int unique(int row = 0, int col = 0, int num = 0) {
             if (col > 8) {
                 // If out of bounds on the bottom right corner, we found one more solution
@@ -322,13 +340,23 @@ class Board {
             std::random_device dev;
             std::mt19937 rng(dev());
 
-            // Run through and for each line make the result equal to the current line if a random number from 0 to the number of lines is less than one (ensures a result always gets picked)
             std::string line, result;
+
+            // If there are no seeds, generate a new seed
+            if (binary_file.peek() == std::ifstream::traits_type::eof()) {
+                *this = generateSeed();
+                return;
+            }
+
+            // For each line randomly decide if it should be the result
+            // Randomly select a number from 0 to the line number
+            // If the num is less than 1, set the result to this line (ensures a result)
             for(std::size_t i = 0; std::getline(binary_file, line); ++i) {
                 std::uniform_int_distribution<> dist(0, i);
                 if (dist(rng) < 1)
                     result = line;
             }
+
             binary_file.close(); // Close file
 
             // Shuffle around which number is which
@@ -346,22 +374,22 @@ class Board {
             fix();
         }
 
-        // Static method to generate a seed for a puzzle because generation times are so long (generates a board) 
+        // Static method to generate a seed for a puzzle (generates a board) 
         static Board generateSeed() {     
             Board board;
 
             // Create a list of pointers to individual elements of the board
-            int *shuffledBoard[81] = {};
+            int shuffledBoard[81] = {};
             for (int i = 0; i < 9; ++i)
                 for (int j = 0; j < 9; ++j)
-                    shuffledBoard[i * 9 + j] = &board._board[i][j]; 
+                    shuffledBoard[i * 9 + j] = i * 9 + j; 
 
             // Randomly shuffle that list of pointers
             std::random_device rd;
             std::mt19937 g(rd());
             std::shuffle(std::begin(shuffledBoard), std::end(shuffledBoard), g);
 
-            // Create a list of options to move so that they can be shuffled to make the algorithm somewhat random
+            // Create a list of options to move to randomly shuffle
             int options[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
             // Iterate through all cells
@@ -372,30 +400,31 @@ class Board {
                 // Iterate through all the options for the selected element
                 for (int k = 0; k < 9; ++k) {
                     // If you can move to the current cell with the kth option to move, do so 
-                    if (board.canMove((shuffledBoard[i] - &(board._board[0][0])) / 9, (shuffledBoard[i] - &(board._board[0][0])) % 9, options[k])) {
-                        *(shuffledBoard[i]) = options[k];
+                    if (board.canMove(shuffledBoard[i] / 9, shuffledBoard[i] % 9, options[k])) {
+                        board._board[shuffledBoard[i] / 9][shuffledBoard[i] % 9] = options[k];
                         
                         // Get the number of solutions remaining
                         int numSolutions = board.unique();
                         
-                        if (numSolutions == 1) { // We are finished if there is 1 and only 1 solution
+                        if (numSolutions == 1) { // Return if 1 and only 1 solution
                             board.fix();
                             return board;
-                        } else if (numSolutions > 1) { // If there is more than one, let's keep going
+                        } else if (numSolutions > 1) { // If there is more than one, continue
                             break;
-                        } else {
-                            *(shuffledBoard[i]) = 0; // If there are less than one, we messed up
+                        } else { // If there are less than one, we messed up
+                            board._board[shuffledBoard[i] / 9][shuffledBoard[i] % 9] = 0; 
                         }
                     }
                 }
             }
 
-            // Fix the board and return (this code shouldn't really ever be ran because it implies we filled the entire board or something went wrong)
+            // Fix the board and return
             board.fix();
             return board; 
         }
 
-        // Serialize the board using handy operator<< notation; simply put every element one after another with no spacing or formatting
+        // Serialize the board using handy operator<< notation
+        // Simply put every element one after another with no spacing or formatting
         friend std::ostream& operator<<(std::ostream& os, const Board& board) {
             for (int i = 0; i < 9; ++i)
                 for (int j = 0; j < 9; ++j)
@@ -415,7 +444,8 @@ class Game {
         MEVENT _event; // Mouse Event handler
 
     public:
-        // Default constructor that sets the locale, initializes the terminal using ncurses, allows mouse events, creates the colors, and initializes the display
+        // Default constructor that sets the locale & initializes the terminal using ncurses:
+        // allows mouse events, creates the colors, and initializes the display
         Game(std::string seeds = "seeds.dat") : _seeds(seeds) {
             // Necessary for support of wide characters (MUST BE BEFORE `initscr()`)
             setlocale(LC_ALL, "");
@@ -424,8 +454,8 @@ class Game {
             // Initialize the screen
             initscr();
             keypad(stdscr, TRUE); // Take input from special keys
-            noecho(); // Don't display input on screen by default (e.g. if you type 'a', nothing shows up)
-            cbreak(); // Don't buffer lines; if the user types something, make it immediately available to the program
+            noecho(); // Don't display input on screen by default 
+            cbreak(); // Don't buffer lines; make input immediately available
 
             // Capture mouse events
             mousemask(ALL_MOUSE_EVENTS, NULL);
@@ -554,7 +584,7 @@ class Game {
 
         // Base game loop that gets input from the user and performs a task based on it
         void loop() {
-            for (int ch = getch(); ch != 'q'; ch = getch()) { // Until you type 'q', get character
+            for (int ch = getch(); ch != 'q'; ch = getch()) { // Until you type 'q', getch()
                 switch (ch) {
                     case KEY_MOUSE:
                         if (getmouse(&_event) != OK)
@@ -564,10 +594,11 @@ class Game {
                         if (!(_event.bstate & BUTTON1_CLICKED))
                             break;
 
-                        { // Create a new scope so compiler doesn't complain about skipping variable initialization
+                        { // Create a new scope to avoid skipping variable initialization
                             int x = _event.x, y = _event.y;
-                            if ((y <= 10 && x <= 20) && (y + 1) % 4 != 0 && (x + 2) % 8 != 0 && x % 2 == 0) // If within bounds, move
-                                move(y, x);
+                            if (y <= 10 && (y + 1) % 4 != 0 &&
+                                x <= 20 && (x + 2) % 8 != 0 && x % 2 == 0)
+                                move(y, x); // Move if in bounds
                         }
 
                         break;
@@ -656,7 +687,7 @@ class Game {
                             mvprintw(0, 50, "Hint: ");
                             attroff(COLOR_PAIR(Colors::Fixed));
 
-                            // If there's less than one unique solution, say the board is unsolvable
+                            // If there's less than one unique solution, hint unsolvable
                             if (_board.unique() < 1) {
                                 attron(COLOR_PAIR(Colors::Bad));
                                 mvprintw(0, 56, "NOT SOLVABLE");
@@ -693,14 +724,16 @@ class Game {
                             // Play the index
                             _board.play(index / 9, index % 9, solution[index / 9][index % 9]);
 
-                            // If this happens to be the last number, update the board to be solved; otherwise update
+                            // If this is the last number, change status to be solved
                             if (_board.validate() && _board.full())
                                 _status = Status::Solved;
-                            updateTUI();
+                            updateTUI(); // Update board + status
 
                             // Print the hint in green
                             attron(COLOR_PAIR(Colors::Good));
-                            mvprintw((index / 9) + ((index / 9) / 3), ((index % 9) + ((index % 9) / 3)) * 2, "%i", _board[index / 9][index % 9]);
+                            mvprintw((index / 9) + ((index / 9) / 3),
+                                     ((index % 9) + ((index % 9) / 3)) * 2, 
+                                     "%i", _board[index / 9][index % 9]);
                             attroff(COLOR_PAIR(Colors::Good));
 
                             // Move to the hint
@@ -709,34 +742,40 @@ class Game {
                         break;
                     default: // Handle numbers
                         // If the input is a number or backspace, play the appropriate number
-                        if (ch == 127 || ch == KEY_BACKSPACE || ch == 8 || ('0' <= ch && '9' >= ch)) {
-                            int x = getcurx(stdscr), y = getcury(stdscr); // for resetting cursor
+                        if (ch == 127 || ch == KEY_BACKSPACE || ch == 8 ||
+                            ('0' <= ch && '9' >= ch)) {
+                            int x = getcurx(stdscr), y = getcury(stdscr); // to move back
 
                             // Play the position
-                            _board.play(y - (y / 4), (x / 2) - ((x / 2) / 4), '0' <= ch && '9' >= ch ? ch - '0' : 0);
+                            _board.play(y - (y / 4),
+                                       (x / 2) - ((x / 2) / 4),
+                                       '0' <= ch && '9' >= ch ? ch - '0' : 0);
 
                             // Move the cursor to the next available spot in the same grid
-                            if (ch <= '9' && ch > '0' && _board.canMove(y - (y / 4), (x / 2) - ((x / 2) / 4), ch - '0')) {
-                                // Move the x and y position to the first element in the grid square
+                            if (ch <= '9' && ch > '0' && 
+                                _board.canMove(y - (y / 4), (x / 2) - (x / 8), ch - '0')) {
+                                // Move x & y position to the first cell in the grid square
                                 x = (x / 4) * 4;
                                 y = (y / 4) * 4;
 
                                 // While the position isn't valid, progress it
-                                while (!_board.full() && (_board[y - (y / 4)][(x / 2) - ((x / 2) / 4)] != 0 || _board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)))) {
+                                while (!_board.full() && 
+                                       (_board[y - (y / 4)][(x / 2) - ((x / 2) / 4)] != 0 || 
+                                       _board.fixed(y - (y / 4), (x / 2) - ((x / 2) / 4)))) {
                                     // At the end of a grid
                                     if (((x + 2) % 8 == 6) && (y + 1) % 4 == 3) {
-                                        // If at the end of a row and the bottom of a grid square, move to the next row
+                                        // At end of row, move to the next row
                                         if (x == 20) {
                                             if (y < 10)
                                                 y += 2;
-                                            else // Special case at the very end -> move to the first element
+                                            else // At the very end, move to the first cell
                                                 y = 0;
                                             x = 0;
-                                        } else { // otherwise, move to the next grid to the right
+                                        } else { // else, move to the grid to the right
                                             x += 4;
                                             y -= 2;
                                         }
-                                    } else if ((x + 2) % 8 < 6) { // move forward within the grid
+                                    } else if ((x + 2) % 8 < 6) { // Move inside grid
                                         x += 2;
                                     } else { // move to the next row within the grid
                                         x -= 4;
@@ -770,9 +809,12 @@ int main(int argc, char **argv) {
             std::cout << "usage: sudoku [options]" << std::endl;
             std::cout << "options:" << std::endl;
             std::cout << "  sudoku -h               | prints this screen" << std::endl;
-            std::cout << "  sudoku -s [file]        | sets the source for seeds to be [file] (seeds.dat by default)" << std::endl;
-            std::cout << "  sudoku -g [num]         | generates [num] seeds for sudoku puzzles (100 by default) and exports to seeds.dat" << std::endl;
-            std::cout << "  sudoku -t               | tests the seeds file for seeds with unique solutions" << std::endl;
+            std::cout << "  sudoku -s [file]        | sets the source for seeds to be [file]";
+            std::cout << " (seeds.dat by default)" << std::endl;
+            std::cout << "  sudoku -g [num]         | generates [num] seeds for sudoku puzzl";
+            std::cout << "es (100 by default) and exports to seeds.dat" << std::endl;
+            std::cout << "  sudoku -t               | tests the seeds file for seeds with un";
+            std::cout << "ique solutions" << std::endl;
             return 0;
         }
 
@@ -799,7 +841,8 @@ int main(int argc, char **argv) {
             refresh();
 
             // Open file for output
-            std::ofstream binary_file(seedsFile, std::ios::out | std::ios::binary | std::ios::app);
+            std::ofstream binary_file(seedsFile, 
+                                      std::ios::out | std::ios::binary | std::ios::app);
 
             // Generate the number of seeds requested
             for (int i = 0; i < num; ++i) {
