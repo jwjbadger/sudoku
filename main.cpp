@@ -1,16 +1,24 @@
+// All code from the namespace `std` is part of the C++ standard library
+// made publically available by an ISO working group
 #include <iostream>
 #include <algorithm>
 #include <iterator>
 #include <random>
 #include <fstream>
 #include <string>
-#include <locale.h>
 
 // Apple uses an older version of NCurses, so you must #define a macro to be 1 for support
 #ifdef __APPLE__
     #define _XOPEN_SOURCE_EXTENDED 1
 #endif
+
+// A publically available API with C++ bindings to create a TUI using escape characters
+// Initially released in 1993 and updated since then primarily by the following:
+// Thomas E. Dickey, Juergen Pfeifer, Eric S Raymond, Alexander V Lukyanov, Philippe Blain,
+// Sven Verdoolaege, and Nicolas Boulenguez (among others)
+// More information may be found here: https://invisible-island.net/ncurses/ncurses.faq.html
 #include <ncurses.h>
+#include <locale.h>
 
 // Makes colors and status more clear to reference (e.g. Colors::Bad is the same as 1)
 enum Colors { Bad = 1, Good = 2, Fixed = 3 };
@@ -345,7 +353,7 @@ class Board {
         }
 
         // Generate a new board using the seeds file
-        void generate(std::string file = "seeds.dat") {
+        void generate(std::string file) {
             std::ifstream binary_file(file, std::ios::in | std::ios::binary); // Open the file
 
             // To generate better random numbers
@@ -771,8 +779,9 @@ class Game {
                                        '0' <= ch && '9' >= ch ? ch - '0' : 0);
 
                             // Move the cursor to the next available spot in the same grid
-                            if (ch <= '9' && ch > '0' && 
-                                _board.canMove(y - (y / 4), (x / 2) - (x / 8), ch - '0')) {
+                            if ((ch <= '9' && ch > '0' && 
+                                _board.canMove(y - (y / 4), (x / 2) - (x / 8), ch - '0')) ||
+                                _board.fixed(y - (y / 4), (x / 2) - (x / 8))) {
                                 // Move x & y position to the first cell in the grid square
                                 x = (x / 4) * 4;
                                 y = (y / 4) * 4;
@@ -806,6 +815,9 @@ class Game {
                             // If this solves the board, update the TUI
                             if (_board.validate() && _board.full())
                                 _status = Status::Solved;
+                            else
+                                _status = Status::UserInput;
+
                             updateTUI();
 
                             // Return to the original position
