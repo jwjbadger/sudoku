@@ -66,13 +66,25 @@ class Board {
             delete[] _fixed;
         }
 
+        // Reset the board
+        void clear() {
+            delete[] _fixed;
+
+            _numFixed = 0;
+            _fixed = new int[_numFixed];
+
+            for (int i = 0; i < 9; ++i)
+                for (int j = 0; j < 9; ++j)
+                    _board[i][j] = 0;
+        }
+
         // Overload operator[] to allow for easy indexing of the array 
-        // Returns a constant: you must modify the board via `play()` not using direct modification)
+        // Returns a constant: you must modify the board via `play()`
         const int* operator[](const unsigned int r) const {
             return _board[r];
         }
 
-        // Taking in a row and a column, returns a boolean describing if the element at that position is fixed
+        // Taking in a row and col, returns a boolean describing if that cell is fixed
         bool fixed(int r, int c) {
             if (std::find(_fixed, _fixed + _numFixed, r * 9 + c) != _fixed + _numFixed)
                 return true;
@@ -89,7 +101,7 @@ class Board {
             // Get rid of old _fixed
             delete[] _fixed;
 
-            // Set _numFixed to the number of non-zero elements & create a new array to store this
+            // Set _numFixed to the number of non-zero elements & create a new array
             _numFixed = count();
             _fixed = new int[_numFixed];
 
@@ -552,20 +564,22 @@ class Game {
             mvprintw(0, 26, "Status: ");
             mvprintw(2, 26, "Keybinds:");
             mvprintw(3, 30, "Movement: ");
-            mvprintw(4, 30, "Generate: ");
+            mvprintw(4, 30, "Input: ");
             mvprintw(5, 30, "Finish Initial Input: ");
-            mvprintw(6, 30, "Solve: ");
-            mvprintw(7, 30, "Input: ");
+            mvprintw(6, 30, "Generate: ");
+            mvprintw(7, 30, "Solve: ");
             mvprintw(8, 30, "Hint: ");
+            mvprintw(9, 30, "Reset: ");
             attroff(COLOR_PAIR(Colors::Fixed));
 
             // Actual keybinds themselves
             mvprintw(3, 40, "Arrow Keys");
-            mvprintw(4, 40, "G");
+            mvprintw(4, 37, "Backspace | [0-9]");
             mvprintw(5, 52, "F");
-            mvprintw(6, 37, "S");
-            mvprintw(7, 37, "Backspace | [0-9]");
+            mvprintw(6, 40, "G");
+            mvprintw(7, 37, "S");
             mvprintw(8, 36, "H");
+            mvprintw(9, 37, "R");
 
             // Grid
             for (int i = 1; i < 12; ++i) {
@@ -739,6 +753,11 @@ class Game {
                             // Move to the hint
                             move(getcury(stdscr), getcurx(stdscr) - 1);
                         }
+                        break;
+                    case 'r': // Reset board
+                        _board.clear();
+                        _status = Status::UserInput;
+                        updateTUI();
                         break;
                     default: // Handle numbers
                         // If the input is a number or backspace, play the appropriate number
