@@ -704,13 +704,13 @@ class Game {
                         { // Same thing; create new scope for variable initialization
                             int x = getcurx(stdscr), y = getcury(stdscr);
 
-                            // Setup hint
-                            attron(COLOR_PAIR(Colors::Fixed));
-                            mvprintw(0, 50, "Hint: ");
-                            attroff(COLOR_PAIR(Colors::Fixed));
-
                             // If there's less than one unique solution, hint unsolvable
                             if (_board.unique() < 1) {
+                                // Setup hint
+                                attron(COLOR_PAIR(Colors::Fixed));
+                                mvprintw(0, 50, "Hint: ");
+                                attroff(COLOR_PAIR(Colors::Fixed));
+
                                 attron(COLOR_PAIR(Colors::Bad));
                                 mvprintw(0, 56, "NOT SOLVABLE");
                                 attroff(COLOR_PAIR(Colors::Bad));
@@ -738,11 +738,6 @@ class Game {
                                     index = 0;
                             }
 
-                            // Board is solvable
-                            attron(COLOR_PAIR(Colors::Good));
-                            mvprintw(0, 56, "SOLVABLE");
-                            attroff(COLOR_PAIR(Colors::Good));
-
                             // Play the index
                             _board.play(index / 9, index % 9, solution[index / 9][index % 9]);
 
@@ -756,6 +751,15 @@ class Game {
                             mvprintw((index / 9) + ((index / 9) / 3),
                                      ((index % 9) + ((index % 9) / 3)) * 2, 
                                      "%i", _board[index / 9][index % 9]);
+                            attroff(COLOR_PAIR(Colors::Good));
+
+                            // Board is solvable
+                            attron(COLOR_PAIR(Colors::Fixed));
+                            mvprintw(0, 50, "Hint: ");
+                            attroff(COLOR_PAIR(Colors::Fixed));
+                            
+                            attron(COLOR_PAIR(Colors::Good));
+                            mvprintw(0, 56, "SOLVABLE");
                             attroff(COLOR_PAIR(Colors::Good));
 
                             // Move to the hint
