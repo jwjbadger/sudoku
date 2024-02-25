@@ -4,3 +4,4 @@ main.dSYM
 main
 sudoku
 build/*
+.DS_Store
